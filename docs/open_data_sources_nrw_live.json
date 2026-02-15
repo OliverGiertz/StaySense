@@ -8,12 +8,12 @@
       "json_path": "features",
       "source_name": "koeln_verkehrsbeeintraechtigungen",
       "field_map": {
-        "external_id": "attributes.OBJECTID",
+        "external_id": "attributes.objectid",
         "lat": "geometry.y",
         "lon": "geometry.x",
-        "event_type": "attributes.TYP",
-        "start_datetime": "attributes.DATUM_VON",
-        "end_datetime": "attributes.DATUM_BIS"
+        "event_type": "attributes.typ",
+        "start_datetime": "attributes.datum_von",
+        "end_datetime": "attributes.datum_bis"
       },
       "event_type_map": {
         "1": "event",

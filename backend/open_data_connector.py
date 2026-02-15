@@ -264,7 +264,7 @@ def import_from_source(source_cfg: dict, config_dir: Path) -> dict:
             lat = float(_as_text(lat_raw) or _as_text(defaults.get("lat", "")))
             lon = float(_as_text(lon_raw) or _as_text(defaults.get("lon", "")))
             if coord_crs == "EPSG:25832":
-                lat, lon = _utm_epsg25832_to_wgs84(lat, lon)
+                lat, lon = _utm_epsg25832_to_wgs84(lon, lat)
 
             start_dt = _as_text(_get_by_path(record, start_key)) or _as_text(defaults.get("start_datetime", ""))
             end_dt = _as_text(_get_by_path(record, end_key)) or _as_text(defaults.get("end_datetime", ""))
