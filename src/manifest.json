@@ -1,7 +1,7 @@
 {
   "name": "StaySense NRW",
   "short_name": "StaySense",
-  "description": "Night Safety Score für ruhige Nächte (22-06 Uhr) in NRW.",
+  "description": "Night Safety Score fuer ruhige Naechte (22-06 Uhr) in NRW.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
