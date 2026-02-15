@@ -44,6 +44,20 @@ location /api/ {
 }
 ```
 
+Endpoint-spezifisch (empfohlen):
+
+```nginx
+location = /api/spot/signal {
+  limit_req zone=staysense_signal burst=3 nodelay;
+  proxy_pass http://127.0.0.1:8787/spot/signal;
+}
+
+location /api/spot/score {
+  limit_req zone=staysense_score burst=25 nodelay;
+  proxy_pass http://127.0.0.1:8787/spot/score;
+}
+```
+
 ## Security Header (empfohlen)
 
 ```nginx

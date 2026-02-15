@@ -50,8 +50,12 @@ sudo systemctl restart staysense-api.service
 ## Hardening Snapshot
 
 - API-Rate-Limit aktiv auf `/api/` (`limit_req zone=limit burst=20 nodelay`)
+- Endpoint-spezifische Limits:
+  - `/api/spot/score`: `zone=staysense_score`, `burst=25`
+  - `/api/spot/signal`: `zone=staysense_signal`, `burst=3`
 - Security Header aktiv im vHost (`CSP`, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`)
 - Fail2ban Jail aktiv:
   - Name: `nginx-staysense-limitreq`
   - Log: `/home/staysense-site/logs/nginx/error.log`
   - Ban bei wiederholten Rate-Limit-Verstoessen
+  - Alarm-Log: `/var/log/staysense-security.log`
