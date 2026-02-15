@@ -76,6 +76,8 @@ function initialize() {
 
   flushSignalQueue();
   renderQueueStatus();
+  checkApiHealth();
+  setInterval(checkApiHealth, 30000);
 }
 
 function ensureDeviceToken() {
@@ -101,12 +103,25 @@ function saveJSON(key, value) {
 }
 
 function updateNetworkStatus() {
-  networkStatusEl.textContent = navigator.onLine ? "Online" : "Offline";
+  networkStatusEl.textContent = navigator.onLine ? "Browser: Online" : "Browser: Offline";
 }
 
 function onOnline() {
   updateNetworkStatus();
   flushSignalQueue();
+  checkApiHealth();
+}
+
+async function checkApiHealth() {
+  try {
+    const response = await fetch(`${API_BASE}/health`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("health_failed");
+    }
+    networkStatusEl.textContent = navigator.onLine ? "Browser: Online | API: Online" : "Browser: Offline | API: Online";
+  } catch {
+    networkStatusEl.textContent = navigator.onLine ? "Browser: Online | API: Offline" : "Browser: Offline | API: Offline";
+  }
 }
 
 function renderQueueStatus() {
