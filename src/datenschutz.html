@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Datenschutz | StaySense</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="background haze-a"></div>
+    <div class="background haze-b"></div>
+
+    <header class="top">
+      <h1>Datenschutzerklärung (StaySense)</h1>
+      <p>Diese Erklärung gilt für die Webanwendung StaySense unter staysense.vanityontour.de.</p>
+      <small><a href="/" style="color: inherit">Zurück zur App</a></small>
+    </header>
+
+    <main class="grid" style="max-width: 980px">
+      <section class="panel">
+        <h2>1. Verantwortliche Stelle</h2>
+        <p class="small">
+          Verantwortlich für die Verarbeitung im Rahmen von StaySense ist der Betreiber laut Impressum:
+          <a href="https://vanityontour.de/impressum/" target="_blank" rel="noopener noreferrer">vanityontour.de/impressum</a>.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>2. Verarbeitungen in StaySense</h2>
+        <ul class="legal">
+          <li>Score-Abfrage: Verarbeitung der eingegebenen Koordinaten zur Berechnung des Night Safety Score.</li>
+          <li>Kartensuche: Suchanfragen werden über die StaySense-API an Nominatim weitergeleitet.</li>
+          <li>Community-Signale: Speicherung von `spot_id`, `signal_type`, Zeitstempel und gehashtem Gerätetoken.</li>
+          <li>Offline-Funktionen: lokale Speicherung von Cache/Queue-Daten im Browser (`localStorage`).</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>3. Datenschutz by Design (MVP)</h2>
+        <ul class="legal">
+          <li>Kein Nutzerkonto/kein Login für Endnutzer.</li>
+          <li>Kein Device Fingerprinting und keine Werbe-ID-Nutzung.</li>
+          <li>Missbrauchsschutz über lokalen Zufallstoken (UUIDv4) und serverseitigen HMAC-Hash.</li>
+          <li>Token wird nicht im Klartext serverseitig gespeichert.</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>4. Technische Logdaten</h2>
+        <p class="small">
+          Beim Betrieb von Webservern fallen technisch notwendige Verbindungs- und Fehlerprotokolle an
+          (z. B. zur Sicherheit, Stabilität und Fehleranalyse). Diese Verarbeitung erfolgt auf Grundlage
+          berechtigter Interessen nach Art. 6 Abs. 1 lit. f DSGVO.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>5. Rechtsgrundlagen (typisch)</h2>
+        <ul class="legal">
+          <li>Art. 6 Abs. 1 lit. b DSGVO: Bereitstellung der angeforderten App-Funktionen.</li>
+          <li>Art. 6 Abs. 1 lit. f DSGVO: IT-Sicherheit, Missbrauchsschutz, stabiler Betrieb.</li>
+          <li>Art. 6 Abs. 1 lit. a DSGVO: sofern eine Einwilligung erforderlich ist (z. B. Gerätestandort).</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>6. Empfänger / Drittquellen</h2>
+        <ul class="legal">
+          <li>Hosting- und Infrastrukturprovider (Serverbetrieb).</li>
+          <li>OpenStreetMap/Nominatim im Rahmen der Karten- und Suchfunktionen.</li>
+          <li>Kommunale OpenData-Quellen (z. B. Köln/Open.NRW) für Ereignisdaten.</li>
+        </ul>
+        <p class="small">
+          Details zu Datenquellen und Lizenzen:
+          <a href="quellen.html">Attribution / Quellen</a>.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>7. Speicherdauer</h2>
+        <ul class="legal">
+          <li>Community-Signale werden entsprechend Betriebs- und Bewertungszweck vorgehalten.</li>
+          <li>Lokale Browserdaten (Cache/Queue/Einstellungen) bleiben bis zur Löschung durch den Nutzer.</li>
+          <li>Server-Logs werden nur so lange vorgehalten, wie es technisch und sicherheitsseitig erforderlich ist.</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>8. Ihre Rechte</h2>
+        <p class="small">
+          Sie haben nach DSGVO insbesondere Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung,
+          Widerspruch und Datenübertragbarkeit sowie ein Beschwerderecht bei einer Aufsichtsbehörde.
+          Kontaktweg siehe Impressum.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>9. Ursprung / Anpassung</h2>
+        <p class="small">
+          Diese Erklärung wurde inhaltlich auf Basis der allgemeinen Datenschutzhinweise von
+          <a href="https://vanityontour.de/datenschutz/" target="_blank" rel="noopener noreferrer">vanityontour.de/datenschutz</a>
+          für die spezifischen StaySense-Verarbeitungen ergänzt und konkretisiert.
+        </p>
+        <p class="small">Stand: <span id="privacy-date">-</span></p>
+      </section>
+    </main>
+
+    <script>
+      document.getElementById("privacy-date").textContent = new Date().toLocaleDateString("de-DE");
+    </script>
+  </body>
+</html>
