@@ -31,15 +31,18 @@ let currentSpot = null;
 let scoreCache = loadJSON(SCORE_CACHE_KEY, []);
 let signalQueue = loadJSON(SIGNAL_QUEUE_KEY, []);
 let settings = loadJSON(SETTINGS_KEY, { signalsEnabled: true });
+let apiOnline = false;
+let lastHealthCheckAt = null;
+let lastHealthLatencyMs = null;
 
 const deviceToken = ensureDeviceToken();
 initialize();
 
 function initialize() {
   signalsEnabledEl.checked = Boolean(settings.signalsEnabled);
-  updateNetworkStatus();
-  window.addEventListener("online", onOnline);
-  window.addEventListener("offline", updateNetworkStatus);
+  renderNetworkStatus();
+  window.addEventListener("online", onNetworkHint);
+  window.addEventListener("offline", onNetworkHint);
 
   signalsEnabledEl.addEventListener("change", () => {
     settings.signalsEnabled = signalsEnabledEl.checked;
@@ -102,26 +105,34 @@ function saveJSON(key, value) {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-function updateNetworkStatus() {
-  networkStatusEl.textContent = navigator.onLine ? "Browser: Online" : "Browser: Offline";
+function renderNetworkStatus() {
+  const checkedAt = lastHealthCheckAt ? toLocal(lastHealthCheckAt) : "-";
+  const latency = Number.isFinite(lastHealthLatencyMs) ? `${lastHealthLatencyMs}ms` : "-";
+  networkStatusEl.textContent = `API: ${apiOnline ? "Online" : "Offline"} | letzter Check: ${checkedAt} | Latenz: ${latency}`;
 }
 
-function onOnline() {
-  updateNetworkStatus();
+function onNetworkHint() {
+  // Hint event from browser/OS network stack: trigger real check, do not trust onLine flag as truth.
   flushSignalQueue();
   checkApiHealth();
 }
 
 async function checkApiHealth() {
+  const started = performance.now();
   try {
     const response = await fetch(`${API_BASE}/health`, { cache: "no-store" });
     if (!response.ok) {
       throw new Error("health_failed");
     }
-    networkStatusEl.textContent = navigator.onLine ? "Browser: Online | API: Online" : "Browser: Offline | API: Online";
+    apiOnline = true;
+    lastHealthLatencyMs = Math.round(performance.now() - started);
+    lastHealthCheckAt = new Date().toISOString();
   } catch {
-    networkStatusEl.textContent = navigator.onLine ? "Browser: Online | API: Offline" : "Browser: Offline | API: Offline";
+    apiOnline = false;
+    lastHealthLatencyMs = null;
+    lastHealthCheckAt = new Date().toISOString();
   }
+  renderNetworkStatus();
 }
 
 function renderQueueStatus() {
@@ -292,7 +303,7 @@ async function submitSignal(signal) {
 }
 
 async function flushSignalQueue() {
-  if (!navigator.onLine || !signalQueue.length) {
+  if (!signalQueue.length) {
     return;
   }
 
