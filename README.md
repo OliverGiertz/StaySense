@@ -10,6 +10,7 @@ Implementiert:
 - API: `GET /spot/score`, `POST /spot/signal`
 - Kartenwahl via OpenStreetMap (Leaflet), inkl. Klickauswahl und Ortssuche
 - API: `GET /geocode/search` (Nominatim-Proxy), `GET /map/tile/{z}/{x}/{y}.png` (OSM-Tile-Proxy)
+- PWA-Basis (Manifest, Service Worker, iOS-Standalone-Meta, Offline-Shell)
 - Admin-Bereich (Setup/Login, geschuetzt per User/Passwort + Session-Token)
 - Admin-API fuer Uebersicht und Event-Verwaltung (`/admin/*`)
 - Anti-Spam ohne Account: lokaler Token + serverseitiger HMAC-Hash
@@ -43,6 +44,9 @@ Nicht im MVP:
    - `python3 -m http.server 8080`
 7. App oeffnen:
    - `http://localhost:8080`
+8. PWA-Test:
+   - iOS Safari: Seite aufrufen -> Teilen -> "Zum Home-Bildschirm"
+   - Danach aus Home-Screen starten (Standalone-Modus)
 
 ## OpenData Connector Config
 

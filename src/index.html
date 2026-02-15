@@ -2,8 +2,15 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#006680" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="StaySense" />
     <title>StaySense NRW MVP</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+    <link rel="apple-touch-icon" href="icons/icon.svg" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
   </head>
@@ -14,6 +21,7 @@
     <header class="top">
       <h1>StaySense</h1>
       <p>Kreis Mettmann Pilot: ruhige Nacht in weniger als 10 Sekunden bewerten.</p>
+      <small id="ios-install-hint" class="small hidden"></small>
       <small id="network-status">Netzwerkstatus wird geprüft ...</small>
       <small id="data-status">Datenstand: -</small>
     </header>
@@ -190,6 +198,7 @@
       </section>
     </main>
 
+    <script src="pwa.js"></script>
     <script src="vendor/leaflet/leaflet.js"></script>
     <script src="app.js"></script>
   </body>

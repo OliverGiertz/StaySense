@@ -1,0 +1,19 @@
+{
+  "name": "StaySense NRW",
+  "short_name": "StaySense",
+  "description": "Night Safety Score für ruhige Nächte (22-06 Uhr) in NRW.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f7f6",
+  "theme_color": "#006680",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
