@@ -86,6 +86,7 @@ Signal senden:
 
 - Architektur / Umsetzung: `docs/IMPLEMENTATION_PLAN.md`
 - Server-Deployment (Linux + Nginx + systemd): `docs/DEPLOYMENT.md`
+- CloudPanel-Setup (Hetzner): `docs/CLOUDPANEL_SETUP.md`
 - Betrieb / Runbook: `docs/OPERATIONS.md`
 - GitHub Publish Ablauf: `docs/GITHUB_PUBLISH.md`
 - Connector-Konfiguration: `docs/open_data_sources.json`
