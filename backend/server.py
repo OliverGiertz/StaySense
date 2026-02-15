@@ -196,7 +196,7 @@ def collect_local_event_factors(lat: float, lon: float, night_end: dt.datetime) 
 
         event_type = row["event_type"]
         label = {
-            "waste": "Muellabfuhr am Morgen",
+            "waste": "Müllabfuhr am Morgen",
             "market": "Marktbetrieb am Morgen",
             "event": "Lokale Veranstaltung",
             "construction": "Baustelle",
@@ -239,7 +239,7 @@ def collect_community_factors(spot_id: str, at_time: dt.datetime) -> list[dict]:
 
     buckets = {
         "knock": {"base": -25.0, "half_life": 10.0, "window": 30, "label": "Klopfen gemeldet"},
-        "noise": {"base": -15.0, "half_life": 7.0, "window": 14, "label": "Laerm gemeldet"},
+        "noise": {"base": -15.0, "half_life": 7.0, "window": 14, "label": "Lärm gemeldet"},
         "calm": {"base": 10.0, "half_life": 7.0, "window": 14, "label": "Ruhig gemeldet"},
         "police": {"base": -18.0, "half_life": 10.0, "window": 30, "label": "Polizei-Einsatz gemeldet"},
     }

@@ -71,7 +71,7 @@ function initialize() {
     legalOutputEl.textContent = "MVP-Hinweis: Impressum im Produktionsbetrieb verpflichtend mit Anbieterkennzeichnung.";
   });
 
-  // Pilotwert fuer Mettmann, falls noch keine Eingabe.
+  // Pilotwert für Mettmann, falls noch keine Eingabe.
   if (!latEl.value && !lonEl.value) {
     latEl.value = "51.2500";
     lonEl.value = "6.9730";
@@ -136,12 +136,12 @@ async function checkApiHealth() {
 }
 
 function renderQueueStatus() {
-  queueStatusEl.textContent = `Queue: ${signalQueue.length} ausstehend`;
+  queueStatusEl.textContent = `Warteschlange: ${signalQueue.length} ausstehend`;
 }
 
 async function fillLocationFromDevice() {
   if (!navigator.geolocation) {
-    alert("Geolocation wird auf diesem Geraet nicht unterstuetzt.");
+    alert("Geolocation wird auf diesem Gerät nicht unterstützt.");
     return;
   }
 
@@ -177,7 +177,7 @@ async function loadScore() {
   const lat = Number(latEl.value);
   const lon = Number(lonEl.value);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    alert("Bitte gueltige Koordinaten eingeben.");
+    alert("Bitte gültige Koordinaten eingeben.");
     return;
   }
 
@@ -205,7 +205,7 @@ async function loadScore() {
       currentSpot = cached.payload;
       renderScore(cached.payload, true, cached.fetchedAt);
     } else {
-      signalStatusEl.textContent = "Kein Live-Score und kein Cache fuer diesen Spot vorhanden.";
+      signalStatusEl.textContent = "Kein Live-Score und kein Cache für diesen Spot vorhanden.";
     }
   } finally {
     loadScoreEl.disabled = false;
@@ -217,7 +217,7 @@ function renderScore(data, fromCache, cacheTime = "") {
 
   ampelEl.classList.remove("green", "yellow", "red");
   ampelEl.classList.add(data.ampel);
-  ampelEl.textContent = data.ampel === "green" ? "Gruen" : data.ampel === "yellow" ? "Gelb" : "Rot";
+  ampelEl.textContent = data.ampel === "green" ? "Grün" : data.ampel === "yellow" ? "Gelb" : "Rot";
 
   nightWindowEl.textContent = `Bezug: ${toLocal(data.night_window.start)} bis ${toLocal(data.night_window.end)}`;
 
@@ -281,7 +281,7 @@ async function sendSignal(signalType) {
     }
     signalQueue.push(signal);
     saveJSON(SIGNAL_QUEUE_KEY, signalQueue);
-    signalStatusEl.textContent = `Offline/Fehler: Signal '${signalType}' gequeued.`;
+    signalStatusEl.textContent = `Offline/Fehler: Signal '${signalType}' zwischengespeichert.`;
     renderQueueStatus();
   }
 }
@@ -323,7 +323,7 @@ async function flushSignalQueue() {
   renderQueueStatus();
 
   if (!keep.length && pending.length) {
-    signalStatusEl.textContent = "Alle gequeueten Signale wurden synchronisiert.";
+    signalStatusEl.textContent = "Alle zwischengespeicherten Signale wurden synchronisiert.";
   }
 }
 
