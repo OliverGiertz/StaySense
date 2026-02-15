@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StaySense NRW MVP</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="background haze-a"></div>
+    <div class="background haze-b"></div>
+
+    <header class="top">
+      <h1>StaySense</h1>
+      <p>Kreis Mettmann Pilot: ruhige Nacht in weniger als 10 Sekunden bewerten.</p>
+      <small id="network-status">Netzwerkstatus wird geprueft ...</small>
+      <small id="data-status">Datenstand: -</small>
+    </header>
+
+    <main class="grid">
+      <section class="panel input-panel">
+        <h2>Standort</h2>
+        <div class="field-grid">
+          <label>
+            Latitude
+            <input id="lat" type="number" step="0.000001" placeholder="51.2500" />
+          </label>
+          <label>
+            Longitude
+            <input id="lon" type="number" step="0.000001" placeholder="6.9700" />
+          </label>
+        </div>
+
+        <div class="button-row">
+          <button id="use-location" class="btn secondary">Aktuellen Standort nutzen</button>
+          <button id="load-score" class="btn">Score fuer heute Nacht (22-06)</button>
+        </div>
+
+        <p class="hint">Night Hours im MVP fix: 22:00 bis 06:00.</p>
+      </section>
+
+      <section class="panel result-panel">
+        <h2>Quick Decision</h2>
+        <div class="decision" id="decision-card">
+          <div class="score-wrap">
+            <div class="score" id="score">--</div>
+            <div class="ampel" id="ampel">-</div>
+          </div>
+          <p id="night-window">Bezug: Heute Nacht 22:00-06:00</p>
+          <ul id="reasons" class="reasons">
+            <li>Noch keine Daten geladen.</li>
+          </ul>
+        </div>
+
+        <h3>Community Signal</h3>
+        <div class="signal-grid">
+          <button class="btn signal" data-signal="calm">Ruhige Nacht</button>
+          <button class="btn signal" data-signal="noise">Laerm</button>
+          <button class="btn signal" data-signal="knock">Klopfen</button>
+          <button class="btn signal" data-signal="police">Polizei</button>
+        </div>
+        <small id="signal-status">Noch kein Signal gesendet.</small>
+        <small id="queue-status">Queue: 0 ausstehend</small>
+      </section>
+
+      <section class="panel settings-panel">
+        <h2>Settings</h2>
+        <label class="toggle">
+          <input id="signals-enabled" type="checkbox" checked />
+          Community Signals aktivieren
+        </label>
+        <p class="small">Offline werden Signale gequeued und spaeter gesendet.</p>
+
+        <h3>Rechtliches</h3>
+        <ul class="legal">
+          <li><a href="#" id="show-attribution">Attribution (OSM/ODbL)</a></li>
+          <li><a href="#" id="show-privacy">Datenschutz</a></li>
+          <li><a href="#" id="show-imprint">Impressum</a></li>
+        </ul>
+        <div id="legal-output" class="legal-output"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

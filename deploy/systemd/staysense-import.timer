@@ -1,0 +1,11 @@
+[Unit]
+Description=Run StaySense import every 6 hours
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=6h
+Unit=staysense-import.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target

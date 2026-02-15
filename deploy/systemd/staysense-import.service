@@ -1,0 +1,11 @@
+[Unit]
+Description=StaySense Data Import Job
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/staysense/backend
+ExecStart=/usr/bin/python3 /opt/staysense/backend/run_import_jobs.py --config /opt/staysense/docs/open_data_sources.json --prune-legacy
