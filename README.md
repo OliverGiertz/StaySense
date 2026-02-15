@@ -59,6 +59,15 @@ Datei: `docs/open_data_sources.json`
   - `start_datetime < end_datetime`
   - Event-Typ muss auf `market|waste|event|construction` normalisiert werden
 
+Live-Beispiel fuer echte NRW-OpenData-Quellen:
+- Datei: `docs/open_data_sources_nrw_live.json`
+- Enthalten:
+  - Koeln Verkehrsbeeintraechtigungen (ArcGIS JSON)
+  - Koeln Baustellen Notfall (WFS GeoJSON)
+- Import:
+  - `cd StaySense/backend`
+  - `python3 run_import_jobs.py --config ../docs/open_data_sources_nrw_live.json --prune-legacy`
+
 ## Tests
 
 - Backend Unit-Tests:

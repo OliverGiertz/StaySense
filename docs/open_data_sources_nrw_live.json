@@ -1,0 +1,67 @@
+{
+  "sources": [
+    {
+      "id": "koeln_verkehrsbeeintraechtigungen_arcgis",
+      "enabled": true,
+      "format": "json",
+      "url": "https://geoportal.stadt-koeln.de/arcgis/rest/services/verkehr/verkehrskalender/MapServer/0/query?where=objectid%20is%20not%20null&outFields=*&returnGeometry=true&outSR=4326&f=pjson",
+      "json_path": "features",
+      "source_name": "koeln_verkehrsbeeintraechtigungen",
+      "field_map": {
+        "external_id": "attributes.OBJECTID",
+        "lat": "geometry.y",
+        "lon": "geometry.x",
+        "event_type": "attributes.TYP",
+        "start_datetime": "attributes.DATUM_VON",
+        "end_datetime": "attributes.DATUM_BIS"
+      },
+      "event_type_map": {
+        "1": "event",
+        "2": "construction",
+        "3": "construction",
+        "4": "event",
+        "5": "event",
+        "6": "event",
+        "7": "event",
+        "8": "event",
+        "9": "construction",
+        "10": "event",
+        "11": "event",
+        "12": "event",
+        "13": "event",
+        "14": "event",
+        "15": "event"
+      },
+      "default_values": {
+        "risk_modifier": -10
+      }
+    },
+    {
+      "id": "koeln_baustellen_notfall_wfs",
+      "enabled": true,
+      "format": "json",
+      "url": "https://geoportal.stadt-koeln.de/wss/service/baustellen_wfs/guest?service=WFS&version=1.1.0&request=GetFeature&typeName=ms:notfall&outputFormat=application/json;%20subtype=geojson",
+      "json_path": "features",
+      "source_name": "koeln_baustellen_notfall",
+      "coord_crs": "EPSG:25832",
+      "field_map": {
+        "external_id": "properties.Aktenzeichen",
+        "lat": "geometry.coordinates.1",
+        "lon": "geometry.coordinates.0",
+        "event_type": "properties.Kategorie",
+        "risk_modifier": "properties.Risikowert"
+      },
+      "event_type_map": {
+        "notfall": "construction"
+      },
+      "date_range": {
+        "field": "properties.Genehmigungs-Zeitraum",
+        "separator": " bis ",
+        "input_date_format": "%d-%m-%Y"
+      },
+      "default_values": {
+        "risk_modifier": -15
+      }
+    }
+  ]
+}

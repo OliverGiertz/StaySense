@@ -2,6 +2,8 @@ import csv
 import datetime as dt
 import hashlib
 import json
+import math
+import subprocess
 from pathlib import Path
 from urllib import request
 
@@ -16,10 +18,88 @@ def now_iso() -> str:
 
 
 def normalize_iso(value: str) -> str:
+    value = value.strip()
+    if value.isdigit():
+        # ArcGIS dates are commonly unix timestamps in milliseconds.
+        ts = int(value)
+        if ts > 10_000_000_000:
+            ts = ts / 1000.0
+        parsed = dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc)
+        return parsed.replace(microsecond=0).isoformat().replace("+00:00", "Z")
     parsed = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=dt.timezone.utc)
     return parsed.astimezone(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _get_by_path(record: dict, path: str):
+    if not path:
+        return None
+    current = record
+    for token in path.split("."):
+        if isinstance(current, dict):
+            current = current.get(token)
+            continue
+        if isinstance(current, list):
+            try:
+                idx = int(token)
+            except Exception:
+                return None
+            if idx < 0 or idx >= len(current):
+                return None
+            current = current[idx]
+            continue
+        return None
+    return current
+
+
+def _as_text(value) -> str:
+    return "" if value is None else str(value).strip()
+
+
+def _utm_epsg25832_to_wgs84(easting: float, northing: float) -> tuple[float, float]:
+    # WGS84 / UTM zone 32N (EPSG:25832) to lat/lon conversion.
+    a = 6378137.0
+    e = 0.08181919084262149
+    e1sq = 0.00673949674227643
+    k0 = 0.9996
+
+    x = easting - 500000.0
+    y = northing
+    zone_cm = 9.0  # UTM zone 32 central meridian
+
+    m = y / k0
+    mu = m / (a * (1 - e**2 / 4 - 3 * e**4 / 64 - 5 * e**6 / 256))
+    e1 = (1 - math.sqrt(1 - e**2)) / (1 + math.sqrt(1 - e**2))
+
+    j1 = 3 * e1 / 2 - 27 * e1**3 / 32
+    j2 = 21 * e1**2 / 16 - 55 * e1**4 / 32
+    j3 = 151 * e1**3 / 96
+    j4 = 1097 * e1**4 / 512
+    fp = mu + j1 * math.sin(2 * mu) + j2 * math.sin(4 * mu) + j3 * math.sin(6 * mu) + j4 * math.sin(8 * mu)
+
+    sin_fp = math.sin(fp)
+    cos_fp = math.cos(fp)
+    tan_fp = math.tan(fp)
+
+    c1 = e1sq * cos_fp**2
+    t1 = tan_fp**2
+    r1 = a * (1 - e**2) / (1 - e**2 * sin_fp**2) ** 1.5
+    n1 = a / math.sqrt(1 - e**2 * sin_fp**2)
+    d = x / (n1 * k0)
+
+    q1 = n1 * tan_fp / r1
+    q2 = d**2 / 2
+    q3 = (5 + 3 * t1 + 10 * c1 - 4 * c1**2 - 9 * e1sq) * d**4 / 24
+    q4 = (61 + 90 * t1 + 298 * c1 + 45 * t1**2 - 252 * e1sq - 3 * c1**2) * d**6 / 720
+    lat = fp - q1 * (q2 - q3 + q4)
+
+    q5 = d
+    q6 = (1 + 2 * t1 + c1) * d**3 / 6
+    q7 = (5 - 2 * c1 + 28 * t1 - 3 * c1**2 + 8 * e1sq + 24 * t1**2) * d**5 / 120
+    lon = math.radians(zone_cm) + (q5 - q6 + q7) / cos_fp
+
+    return math.degrees(lat), math.degrees(lon)
 
 
 def _stable_id(source_name: str, external_id: str | None, payload: dict) -> str:
@@ -61,8 +141,13 @@ def _extract_json_records(payload: dict | list, json_path: str | None) -> list[d
 
 def _read_text(location: str, config_dir: Path) -> str:
     if location.startswith("http://") or location.startswith("https://"):
-        with request.urlopen(location, timeout=60) as resp:
-            return resp.read().decode("utf-8", errors="replace")
+        try:
+            with request.urlopen(location, timeout=60) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except Exception:
+            # Fallback for environments where Python DNS/network stack is restricted.
+            raw = subprocess.check_output(["curl", "-sL", location], timeout=60)
+            return raw.decode("utf-8", errors="replace")
 
     file_path = Path(location)
     if not file_path.is_absolute():
@@ -131,6 +216,8 @@ def import_from_source(source_cfg: dict, config_dir: Path) -> dict:
     defaults = source_cfg.get("default_values") or {}
     event_type_map = {str(k).lower(): str(v).lower() for k, v in (source_cfg.get("event_type_map") or {}).items()}
     json_path = source_cfg.get("json_path")
+    date_range_cfg = source_cfg.get("date_range")
+    coord_crs = str(source_cfg.get("coord_crs", "")).upper().strip()
 
     text = _read_text(location, config_dir)
 
@@ -163,18 +250,36 @@ def import_from_source(source_cfg: dict, config_dir: Path) -> dict:
         event_type_key = field_map.get("event_type", "event_type")
         external_id_key = field_map.get("external_id")
 
-        raw_event_type = str(record.get(event_type_key, defaults.get("event_type", "")))
+        raw_event_type = _as_text(_get_by_path(record, event_type_key))
+        if not raw_event_type:
+            raw_event_type = _as_text(defaults.get("event_type", ""))
         event_type = _map_event_type(raw_event_type, event_type_map, defaults.get("event_type"))
         if not event_type:
             stats["rejected_invalid_event_type"] += 1
             continue
 
         try:
-            lat = float(str(record.get(lat_key, defaults.get("lat", ""))).strip())
-            lon = float(str(record.get(lon_key, defaults.get("lon", ""))).strip())
-            start_dt = str(record.get(start_key, defaults.get("start_datetime", "")).strip())
-            end_dt = str(record.get(end_key, defaults.get("end_datetime", "")).strip())
-            risk_modifier = int(str(record.get(risk_key, defaults.get("risk_modifier", "0"))).strip())
+            lat_raw = _get_by_path(record, lat_key)
+            lon_raw = _get_by_path(record, lon_key)
+            lat = float(_as_text(lat_raw) or _as_text(defaults.get("lat", "")))
+            lon = float(_as_text(lon_raw) or _as_text(defaults.get("lon", "")))
+            if coord_crs == "EPSG:25832":
+                lat, lon = _utm_epsg25832_to_wgs84(lat, lon)
+
+            start_dt = _as_text(_get_by_path(record, start_key)) or _as_text(defaults.get("start_datetime", ""))
+            end_dt = _as_text(_get_by_path(record, end_key)) or _as_text(defaults.get("end_datetime", ""))
+
+            if date_range_cfg and (not start_dt or not end_dt):
+                range_field = _as_text(_get_by_path(record, date_range_cfg.get("field", "")))
+                separator = date_range_cfg.get("separator", " bis ")
+                date_fmt = date_range_cfg.get("input_date_format", "%d-%m-%Y")
+                if separator in range_field:
+                    start_raw, end_raw = [part.strip() for part in range_field.split(separator, 1)]
+                    start_dt = dt.datetime.strptime(start_raw, date_fmt).replace(tzinfo=dt.timezone.utc).isoformat()
+                    end_dt = dt.datetime.strptime(end_raw, date_fmt).replace(tzinfo=dt.timezone.utc).isoformat()
+
+            risk_raw = _get_by_path(record, risk_key)
+            risk_modifier = int(_as_text(risk_raw) or _as_text(defaults.get("risk_modifier", "0")))
         except Exception:
             stats["rejected_parse_error"] += 1
             continue
@@ -203,7 +308,7 @@ def import_from_source(source_cfg: dict, config_dir: Path) -> dict:
 
         external_id = None
         if external_id_key:
-            value = record.get(external_id_key)
+            value = _get_by_path(record, external_id_key)
             external_id = str(value).strip() if value is not None else None
 
         payload = {
