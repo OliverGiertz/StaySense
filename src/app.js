@@ -15,6 +15,7 @@ const lonEl = document.getElementById("lon");
 const searchQueryEl = document.getElementById("search-query");
 const searchLocationEl = document.getElementById("search-location");
 const searchStatusEl = document.getElementById("search-status");
+const searchResultsEl = document.getElementById("search-results");
 const mapEl = document.getElementById("map");
 const loadScoreEl = document.getElementById("load-score");
 const useLocationEl = document.getElementById("use-location");
@@ -40,6 +41,8 @@ let lastHealthCheckAt = null;
 let lastHealthLatencyMs = null;
 let map = null;
 let mapMarker = null;
+let searchResults = [];
+let selectedSearchIndex = -1;
 
 const deviceToken = ensureDeviceToken();
 initialize();
@@ -166,6 +169,8 @@ async function fillLocationFromDevice() {
   useLocationEl.disabled = true;
   navigator.geolocation.getCurrentPosition(
     (position) => {
+      selectedSearchIndex = -1;
+      renderSearchResults();
       setCoordinates(position.coords.latitude, position.coords.longitude, { zoom: 16 });
       searchStatusEl.textContent = "Aktueller Standort übernommen.";
       useLocationEl.disabled = false;
@@ -191,6 +196,8 @@ function initializeMap() {
   }).addTo(map);
 
   map.on("click", (event) => {
+    selectedSearchIndex = -1;
+    renderSearchResults();
     setCoordinates(event.latlng.lat, event.latlng.lng, { fromMap: true });
     searchStatusEl.textContent = "Position aus Karte übernommen.";
   });
@@ -252,18 +259,49 @@ async function searchLocation() {
 
     const payload = await response.json();
     if (!payload.results || !payload.results.length) {
+      searchResults = [];
+      selectedSearchIndex = -1;
+      renderSearchResults();
       searchStatusEl.textContent = "Keine Treffer gefunden.";
       return;
     }
 
-    const best = payload.results[0];
+    searchResults = payload.results;
+    selectedSearchIndex = 0;
+    renderSearchResults();
+    const best = searchResults[0];
     setCoordinates(best.lat, best.lon, { zoom: 16 });
-    searchStatusEl.textContent = `Treffer: ${best.display_name}`;
+    searchStatusEl.textContent = `Treffer ausgewählt: ${best.display_name}`;
   } catch {
+    searchResults = [];
+    selectedSearchIndex = -1;
+    renderSearchResults();
     searchStatusEl.textContent = "Suche fehlgeschlagen. Bitte später erneut versuchen.";
   } finally {
     searchLocationEl.disabled = false;
   }
+}
+
+function renderSearchResults() {
+  searchResultsEl.innerHTML = "";
+  searchResults.forEach((result, index) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "search-result-btn";
+    if (index === selectedSearchIndex) {
+      button.classList.add("active");
+    }
+    button.textContent = result.display_name;
+    button.addEventListener("click", () => {
+      selectedSearchIndex = index;
+      setCoordinates(result.lat, result.lon, { zoom: 16 });
+      searchStatusEl.textContent = `Treffer ausgewählt: ${result.display_name}`;
+      renderSearchResults();
+    });
+    li.appendChild(button);
+    searchResultsEl.appendChild(li);
+  });
 }
 
 function cacheKey(lat, lon) {

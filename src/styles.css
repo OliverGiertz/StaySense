@@ -141,6 +141,41 @@ input {
   color: var(--muted);
 }
 
+.search-results {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  max-height: 190px;
+  overflow: auto;
+  background: #fff;
+}
+
+.search-results:empty {
+  display: none;
+}
+
+.search-result-btn {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.search-result-btn:last-child {
+  border-bottom: 0;
+}
+
+.search-result-btn:hover,
+.search-result-btn.active {
+  background: #eef6fb;
+}
+
 .map {
   margin-top: 8px;
   width: 100%;
