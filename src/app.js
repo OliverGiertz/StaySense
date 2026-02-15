@@ -8,6 +8,7 @@ const DEVICE_TOKEN_KEY = "staysense.device_token.v1";
 const SETTINGS_KEY = "staysense.settings.v1";
 const SCORE_CACHE_KEY = "staysense.score_cache.v1";
 const SIGNAL_QUEUE_KEY = "staysense.signal_queue.v1";
+const ADMIN_TOKEN_KEY = "staysense.admin_token.v1";
 const MAX_CACHE_ITEMS = 50;
 
 const latEl = document.getElementById("lat");
@@ -31,6 +32,32 @@ const queueStatusEl = document.getElementById("queue-status");
 
 const signalsEnabledEl = document.getElementById("signals-enabled");
 const legalOutputEl = document.getElementById("legal-output");
+const adminSetupEl = document.getElementById("admin-setup");
+const adminLoginEl = document.getElementById("admin-login");
+const adminContentEl = document.getElementById("admin-content");
+const adminStatusEl = document.getElementById("admin-status");
+const adminCountsEl = document.getElementById("admin-counts");
+const adminEventsEl = document.getElementById("admin-events");
+const adminSignalsEl = document.getElementById("admin-signals");
+const adminSourcesEl = document.getElementById("admin-sources");
+const adminSetupUserEl = document.getElementById("admin-setup-user");
+const adminSetupPassEl = document.getElementById("admin-setup-pass");
+const adminSetupSubmitEl = document.getElementById("admin-setup-submit");
+const adminLoginUserEl = document.getElementById("admin-login-user");
+const adminLoginPassEl = document.getElementById("admin-login-pass");
+const adminLoginSubmitEl = document.getElementById("admin-login-submit");
+const adminLogoutEl = document.getElementById("admin-logout");
+const adminRefreshEl = document.getElementById("admin-refresh");
+const adminEventCreateEl = document.getElementById("admin-event-create");
+const adminEventDeleteEl = document.getElementById("admin-event-delete");
+const adminEventIdEl = document.getElementById("admin-event-id");
+const adminEventTypeEl = document.getElementById("admin-event-type");
+const adminEventRiskEl = document.getElementById("admin-event-risk");
+const adminEventLatEl = document.getElementById("admin-event-lat");
+const adminEventLonEl = document.getElementById("admin-event-lon");
+const adminEventStartEl = document.getElementById("admin-event-start");
+const adminEventEndEl = document.getElementById("admin-event-end");
+const adminEventSourceEl = document.getElementById("admin-event-source");
 
 let currentSpot = null;
 let scoreCache = loadJSON(SCORE_CACHE_KEY, []);
@@ -43,6 +70,7 @@ let map = null;
 let mapMarker = null;
 let searchResults = [];
 let selectedSearchIndex = -1;
+let adminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || "";
 
 const deviceToken = ensureDeviceToken();
 initialize();
@@ -90,6 +118,14 @@ function initialize() {
     legalOutputEl.textContent = "MVP-Hinweis: Impressum im Produktionsbetrieb verpflichtend mit Anbieterkennzeichnung.";
   });
 
+  adminSetupSubmitEl.addEventListener("click", adminBootstrap);
+  adminLoginSubmitEl.addEventListener("click", adminLogin);
+  adminLogoutEl.addEventListener("click", adminLogout);
+  adminRefreshEl.addEventListener("click", loadAdminOverview);
+  adminEventCreateEl.addEventListener("click", saveAdminEvent);
+  adminEventDeleteEl.addEventListener("click", deleteAdminEvent);
+  adminEventsEl.addEventListener("click", onAdminEventListClick);
+
   // Pilotwert für Mettmann, falls noch keine Eingabe.
   if (!latEl.value && !lonEl.value) {
     latEl.value = "51.2500";
@@ -102,6 +138,7 @@ function initialize() {
   renderQueueStatus();
   checkApiHealth();
   setInterval(checkApiHealth, 30000);
+  loadAdminBootstrapStatus();
 }
 
 function ensureDeviceToken() {
@@ -145,15 +182,28 @@ async function checkApiHealth() {
     if (!response.ok) {
       throw new Error("health_failed");
     }
+    const payload = await response.json();
     apiOnline = true;
     lastHealthLatencyMs = Math.round(performance.now() - started);
     lastHealthCheckAt = new Date().toISOString();
+    renderDataStatusFromHealth(payload && payload.health ? payload.health : null);
   } catch {
     apiOnline = false;
     lastHealthLatencyMs = null;
     lastHealthCheckAt = new Date().toISOString();
+    dataStatusEl.textContent = "Datenstand: aktuell nicht abrufbar (API offline)";
   }
   renderNetworkStatus();
+}
+
+function renderDataStatusFromHealth(health) {
+  if (!health || !health.has_data) {
+    dataStatusEl.textContent = "Datenstand: keine Quellenmetadaten";
+    return;
+  }
+  const freshness = `freshest ${health.freshest_age_hours}h, stalest ${health.stalest_age_hours}h`;
+  const stale = health.stale_sources && health.stale_sources.length ? `, stale: ${health.stale_sources.join(", ")}` : "";
+  dataStatusEl.textContent = `Datenstand: ${freshness}${stale}`;
 }
 
 function renderQueueStatus() {
@@ -279,6 +329,267 @@ async function searchLocation() {
     searchStatusEl.textContent = "Suche fehlgeschlagen. Bitte später erneut versuchen.";
   } finally {
     searchLocationEl.disabled = false;
+  }
+}
+
+async function loadAdminBootstrapStatus() {
+  adminStatusEl.textContent = "Admin-Status wird geladen ...";
+  try {
+    const response = await fetch(`${API_BASE}/admin/bootstrap/status`, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error("bootstrap_status_failed");
+    }
+    const payload = await response.json();
+    renderAdminMode(payload.initialized);
+    if (!payload.initialized) {
+      adminStatusEl.textContent = "Erst-Setup erforderlich: Bitte initialen Admin anlegen.";
+      return;
+    }
+    adminStatusEl.textContent = adminToken
+      ? "Admin bereit. Session wird geprüft ..."
+      : "Admin bereit. Bitte anmelden.";
+    if (adminToken) {
+      await loadAdminOverview();
+    }
+  } catch {
+    renderAdminMode(false);
+    adminStatusEl.textContent = "Admin-Status konnte nicht geladen werden.";
+  }
+}
+
+function renderAdminMode(initialized) {
+  adminSetupEl.classList.toggle("hidden", initialized);
+  adminLoginEl.classList.toggle("hidden", !initialized);
+  if (!initialized) {
+    adminContentEl.classList.add("hidden");
+  }
+}
+
+function adminHeaders() {
+  return adminToken ? { Authorization: `Bearer ${adminToken}` } : {};
+}
+
+async function adminBootstrap() {
+  const username = adminSetupUserEl.value.trim();
+  const password = adminSetupPassEl.value;
+  if (username.length < 3 || password.length < 10) {
+    adminStatusEl.textContent = "Setup fehlgeschlagen: User mind. 3 Zeichen, Passwort mind. 10 Zeichen.";
+    return;
+  }
+  adminSetupSubmitEl.disabled = true;
+  try {
+    const response = await fetch(`${API_BASE}/admin/bootstrap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || "setup_failed");
+    }
+    adminToken = payload.session.token;
+    localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+    adminSetupPassEl.value = "";
+    adminLoginUserEl.value = username;
+    adminStatusEl.textContent = "Admin wurde angelegt und eingeloggt.";
+    renderAdminMode(true);
+    await loadAdminOverview();
+  } catch (error) {
+    adminStatusEl.textContent = `Setup fehlgeschlagen: ${String(error.message || "unbekannter Fehler")}`;
+  } finally {
+    adminSetupSubmitEl.disabled = false;
+  }
+}
+
+async function adminLogin() {
+  const username = adminLoginUserEl.value.trim();
+  const password = adminLoginPassEl.value;
+  if (!username || !password) {
+    adminStatusEl.textContent = "Bitte User und Passwort eingeben.";
+    return;
+  }
+  adminLoginSubmitEl.disabled = true;
+  try {
+    const response = await fetch(`${API_BASE}/admin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || "login_failed");
+    }
+    adminToken = payload.session.token;
+    localStorage.setItem(ADMIN_TOKEN_KEY, adminToken);
+    adminLoginPassEl.value = "";
+    adminStatusEl.textContent = "Admin Login erfolgreich.";
+    await loadAdminOverview();
+  } catch (error) {
+    adminStatusEl.textContent = `Login fehlgeschlagen: ${String(error.message || "unbekannter Fehler")}`;
+  } finally {
+    adminLoginSubmitEl.disabled = false;
+  }
+}
+
+async function adminLogout() {
+  try {
+    await fetch(`${API_BASE}/admin/logout`, { method: "POST", headers: adminHeaders() });
+  } catch {
+    // ignore
+  }
+  adminToken = "";
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+  adminContentEl.classList.add("hidden");
+  adminStatusEl.textContent = "Abgemeldet.";
+}
+
+function renderAdminList(target, rows, mapper) {
+  target.innerHTML = "";
+  if (!rows || !rows.length) {
+    target.textContent = "Keine Daten.";
+    return;
+  }
+  rows.forEach((row) => {
+    const div = document.createElement("div");
+    div.className = "admin-list-item";
+    if (row && row.id) {
+      div.dataset.eventId = row.id;
+      div.title = "Klick setzt Event-ID";
+    }
+    div.textContent = mapper(row);
+    target.appendChild(div);
+  });
+}
+
+async function loadAdminOverview() {
+  if (!adminToken) {
+    adminStatusEl.textContent = "Nicht eingeloggt.";
+    adminContentEl.classList.add("hidden");
+    return;
+  }
+  try {
+    const response = await fetch(`${API_BASE}/admin/overview`, { headers: adminHeaders() });
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      adminToken = "";
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      adminContentEl.classList.add("hidden");
+      adminStatusEl.textContent = "Session abgelaufen. Bitte erneut anmelden.";
+      return;
+    }
+    if (!response.ok) {
+      throw new Error(payload.error || "admin_overview_failed");
+    }
+    adminContentEl.classList.remove("hidden");
+    adminStatusEl.textContent = `Eingeloggt als ${payload.admin_user}.`;
+    adminCountsEl.textContent = `Spots: ${payload.counts.spots} | Signale: ${payload.counts.signals} | Events: ${payload.counts.events} | Quellen: ${payload.counts.data_sources}`;
+    renderAdminList(
+      adminEventsEl,
+      payload.latest_events,
+      (row) =>
+        `${row.id} | ${row.event_type} | ${Number(row.lat).toFixed(5)}, ${Number(row.lon).toFixed(5)} | ${row.start_datetime} -> ${row.end_datetime} | risk ${row.risk_modifier} | ${row.source}`
+    );
+    renderAdminList(
+      adminSignalsEl,
+      payload.latest_signals,
+      (row) => `${row.timestamp} | ${row.signal_type} | spot ${row.spot_id}`
+    );
+    renderAdminList(
+      adminSourcesEl,
+      payload.data_sources,
+      (row) => `${row.source_name} | ${row.record_count} records | ${row.imported_at} | ${row.notes}`
+    );
+  } catch (error) {
+    adminStatusEl.textContent = `Admin-Daten konnten nicht geladen werden: ${String(error.message || "unbekannter Fehler")}`;
+  }
+}
+
+function buildAdminEventPayload() {
+  return {
+    event_type: adminEventTypeEl.value,
+    risk_modifier: Number(adminEventRiskEl.value),
+    lat: Number(adminEventLatEl.value),
+    lon: Number(adminEventLonEl.value),
+    start_datetime: adminEventStartEl.value.trim(),
+    end_datetime: adminEventEndEl.value.trim(),
+    source: adminEventSourceEl.value.trim() || "admin_manual",
+  };
+}
+
+async function saveAdminEvent() {
+  if (!adminToken) {
+    adminStatusEl.textContent = "Bitte zuerst anmelden.";
+    return;
+  }
+  const eventId = adminEventIdEl.value.trim();
+  const payload = buildAdminEventPayload();
+  if (!Number.isFinite(payload.lat) || !Number.isFinite(payload.lon)) {
+    adminStatusEl.textContent = "Ungültige Event-Koordinaten.";
+    return;
+  }
+  const method = eventId ? "PUT" : "POST";
+  const url = eventId ? `${API_BASE}/admin/events/${encodeURIComponent(eventId)}` : `${API_BASE}/admin/events`;
+  adminEventCreateEl.disabled = true;
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { ...adminHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || "event_save_failed");
+    }
+    adminStatusEl.textContent = eventId ? `Event aktualisiert: ${eventId}` : `Event angelegt: ${body.id}`;
+    if (!eventId && body.id) {
+      adminEventIdEl.value = body.id;
+    }
+    await loadAdminOverview();
+  } catch (error) {
+    adminStatusEl.textContent = `Event konnte nicht gespeichert werden: ${String(error.message || "unbekannter Fehler")}`;
+  } finally {
+    adminEventCreateEl.disabled = false;
+  }
+}
+
+async function deleteAdminEvent() {
+  if (!adminToken) {
+    adminStatusEl.textContent = "Bitte zuerst anmelden.";
+    return;
+  }
+  const eventId = adminEventIdEl.value.trim();
+  if (!eventId) {
+    adminStatusEl.textContent = "Bitte Event-ID zum Löschen eingeben.";
+    return;
+  }
+  adminEventDeleteEl.disabled = true;
+  try {
+    const response = await fetch(`${API_BASE}/admin/events/${encodeURIComponent(eventId)}`, {
+      method: "DELETE",
+      headers: adminHeaders(),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || "event_delete_failed");
+    }
+    adminStatusEl.textContent = `Event gelöscht: ${eventId}`;
+    adminEventIdEl.value = "";
+    await loadAdminOverview();
+  } catch (error) {
+    adminStatusEl.textContent = `Event konnte nicht gelöscht werden: ${String(error.message || "unbekannter Fehler")}`;
+  } finally {
+    adminEventDeleteEl.disabled = false;
+  }
+}
+
+function onAdminEventListClick(event) {
+  const row = event.target.closest(".admin-list-item");
+  if (!row) {
+    return;
+  }
+  if (row.dataset.eventId) {
+    adminEventIdEl.value = row.dataset.eventId;
+    adminStatusEl.textContent = `Event-ID übernommen: ${row.dataset.eventId}`;
   }
 }
 

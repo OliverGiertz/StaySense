@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import os
+import secrets
 import uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -36,10 +37,14 @@ NOMINATIM_USER_AGENT = os.environ.get(
     "StaySense/0.1 (staysense.vanityontour.de)",
 )
 OSM_TILE_BASE_URL = os.environ.get("STAYSENSE_OSM_TILE_BASE_URL", "https://tile.openstreetmap.org")
+ADMIN_SESSION_HOURS = int(os.environ.get("STAYSENSE_ADMIN_SESSION_HOURS", "12"))
+ADMIN_PBKDF2_ITERATIONS = int(os.environ.get("STAYSENSE_ADMIN_PBKDF2_ITERATIONS", "390000"))
+ADMIN_MANUAL_SOURCE = "admin_manual"
 
 FALLBACK_POLICE_POINTS = [(51.2507, 6.9751), (51.2965, 6.8494), (51.3398, 7.0438)]
 FALLBACK_FIRE_POINTS = [(51.2518, 6.9800), (51.2937, 6.8568), (51.3314, 7.0540)]
 FALLBACK_HOSPITAL_POINTS = [(51.2556, 6.9723), (51.2891, 6.8457), (51.3321, 7.0403)]
+ADMIN_SESSIONS: dict[str, dict] = {}
 
 
 def utc_now() -> dt.datetime:
@@ -88,12 +93,135 @@ def read_json(handler: BaseHTTPRequestHandler) -> dict:
     return json.loads(body.decode("utf-8"))
 
 
+def require_fields(handler: BaseHTTPRequestHandler, body: dict, fields: list[str]) -> bool:
+    missing = [field for field in fields if not body.get(field)]
+    if missing:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "missing_fields", "fields": missing})
+        return False
+    return True
+
+
 def hashed_device(device_token: str) -> str:
     return hmac.new(
         key=SERVER_SALT.encode("utf-8"),
         msg=device_token.encode("utf-8"),
         digestmod=hashlib.sha256,
     ).hexdigest()
+
+
+def pbkdf2_hash(password: str, salt_hex: str) -> str:
+    dk = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        bytes.fromhex(salt_hex),
+        ADMIN_PBKDF2_ITERATIONS,
+        dklen=32,
+    )
+    return dk.hex()
+
+
+def admin_exists() -> bool:
+    with get_conn() as conn:
+        row = conn.execute("SELECT 1 FROM admin_user WHERE id = 1").fetchone()
+    return bool(row)
+
+
+def get_admin_user() -> dict | None:
+    with get_conn() as conn:
+        row = conn.execute("SELECT id, username, password_hash, password_salt FROM admin_user WHERE id = 1").fetchone()
+    return dict(row) if row else None
+
+
+def validate_admin_password(password: str) -> bool:
+    if not isinstance(password, str):
+        return False
+    return len(password) >= 10
+
+
+def create_admin_user(username: str, password: str) -> tuple[bool, str]:
+    if not isinstance(username, str) or len(username.strip()) < 3:
+        return False, "invalid_username"
+    if not validate_admin_password(password):
+        return False, "invalid_password"
+    if admin_exists():
+        return False, "already_initialized"
+
+    now_iso = to_iso(utc_now())
+    username_clean = username.strip()
+    salt_hex = secrets.token_hex(16)
+    pw_hash = pbkdf2_hash(password, salt_hex)
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO admin_user (id, username, password_hash, password_salt, created_at, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?)
+            """,
+            (username_clean, pw_hash, salt_hex, now_iso, now_iso),
+        )
+    return True, "created"
+
+
+def create_admin_session(username: str) -> dict:
+    token = secrets.token_urlsafe(32)
+    expires_at = utc_now() + dt.timedelta(hours=ADMIN_SESSION_HOURS)
+    ADMIN_SESSIONS[token] = {
+        "username": username,
+        "expires_at": expires_at,
+    }
+    return {"token": token, "expires_at": to_iso(expires_at), "session_hours": ADMIN_SESSION_HOURS}
+
+
+def cleanup_admin_sessions() -> None:
+    now = utc_now()
+    expired = [token for token, item in ADMIN_SESSIONS.items() if item["expires_at"] <= now]
+    for token in expired:
+        ADMIN_SESSIONS.pop(token, None)
+
+
+def admin_auth(handler: BaseHTTPRequestHandler) -> tuple[bool, str]:
+    cleanup_admin_sessions()
+    auth_header = handler.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return False, "missing_token"
+    token = auth_header.replace("Bearer ", "", 1).strip()
+    session = ADMIN_SESSIONS.get(token)
+    if not session:
+        return False, "invalid_token"
+    if session["expires_at"] <= utc_now():
+        ADMIN_SESSIONS.pop(token, None)
+        return False, "expired_token"
+    return True, session["username"]
+
+
+def parse_admin_event(body: dict) -> tuple[dict | None, str | None]:
+    try:
+        event_type = str(body.get("event_type", "")).strip()
+        lat = float(body.get("lat"))
+        lon = float(body.get("lon"))
+        risk_modifier = int(body.get("risk_modifier"))
+        start_datetime = to_iso(parse_iso8601(body.get("start_datetime")))
+        end_datetime = to_iso(parse_iso8601(body.get("end_datetime")))
+        source = str(body.get("source", ADMIN_MANUAL_SOURCE)).strip() or ADMIN_MANUAL_SOURCE
+    except Exception:
+        return None, "invalid_payload"
+
+    if event_type not in {"market", "waste", "event", "construction"}:
+        return None, "invalid_event_type"
+    if not (47.0 <= lat <= 55.5 and 5.0 <= lon <= 16.0):
+        return None, "lat_lon_out_of_bounds"
+    if start_datetime >= end_datetime:
+        return None, "invalid_time_window"
+    if risk_modifier < -50 or risk_modifier > 50:
+        return None, "invalid_risk_modifier"
+    return {
+        "event_type": event_type,
+        "lat": lat,
+        "lon": lon,
+        "risk_modifier": risk_modifier,
+        "start_datetime": start_datetime,
+        "end_datetime": end_datetime,
+        "source": source,
+    }, None
 
 
 def fetch_points(sql: str, params: tuple) -> list[tuple[float, float]]:
@@ -599,6 +727,293 @@ def handle_tile_proxy(handler: BaseHTTPRequestHandler, path: str) -> None:
     binary_response(handler, HTTPStatus.OK, payload, "image/png", cache_control="public, max-age=43200")
 
 
+def handle_admin_bootstrap_status(handler: BaseHTTPRequestHandler) -> None:
+    json_response(
+        handler,
+        HTTPStatus.OK,
+        {
+            "initialized": admin_exists(),
+            "session_hours": ADMIN_SESSION_HOURS,
+            "password_policy": {"min_length": 10},
+        },
+    )
+
+
+def handle_admin_bootstrap(handler: BaseHTTPRequestHandler) -> None:
+    try:
+        body = read_json(handler)
+    except Exception:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "invalid_json"})
+        return
+    if not require_fields(handler, body, ["username", "password"]):
+        return
+
+    ok, status = create_admin_user(body["username"], body["password"])
+    if not ok:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": status})
+        return
+    session = create_admin_session(body["username"].strip())
+    json_response(handler, HTTPStatus.CREATED, {"created": True, "session": session})
+
+
+def handle_admin_login(handler: BaseHTTPRequestHandler) -> None:
+    try:
+        body = read_json(handler)
+    except Exception:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "invalid_json"})
+        return
+    if not require_fields(handler, body, ["username", "password"]):
+        return
+    if not admin_exists():
+        json_response(handler, HTTPStatus.PRECONDITION_FAILED, {"error": "admin_not_initialized"})
+        return
+
+    admin = get_admin_user()
+    if not admin:
+        json_response(handler, HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "admin_lookup_failed"})
+        return
+    if body["username"].strip() != admin["username"]:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": "invalid_credentials"})
+        return
+
+    expected = pbkdf2_hash(body["password"], admin["password_salt"])
+    if not hmac.compare_digest(expected, admin["password_hash"]):
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": "invalid_credentials"})
+        return
+
+    session = create_admin_session(admin["username"])
+    json_response(handler, HTTPStatus.OK, {"login": "ok", "session": session})
+
+
+def handle_admin_logout(handler: BaseHTTPRequestHandler) -> None:
+    auth_header = handler.headers.get("Authorization", "")
+    token = auth_header.replace("Bearer ", "", 1).strip() if auth_header.startswith("Bearer ") else ""
+    if token:
+        ADMIN_SESSIONS.pop(token, None)
+    json_response(handler, HTTPStatus.OK, {"logout": "ok"})
+
+
+def handle_admin_overview(handler: BaseHTTPRequestHandler) -> None:
+    ok, username = admin_auth(handler)
+    if not ok:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": username})
+        return
+
+    with get_conn() as conn:
+        counts = {
+            "spots": conn.execute("SELECT COUNT(*) AS c FROM spot").fetchone()["c"],
+            "signals": conn.execute("SELECT COUNT(*) AS c FROM community_signal").fetchone()["c"],
+            "events": conn.execute("SELECT COUNT(*) AS c FROM open_data_event").fetchone()["c"],
+            "data_sources": conn.execute("SELECT COUNT(*) AS c FROM data_source_state").fetchone()["c"],
+        }
+        latest_signals = [dict(r) for r in conn.execute(
+            """
+            SELECT spot_id, signal_type, timestamp
+            FROM community_signal
+            ORDER BY timestamp DESC
+            LIMIT 20
+            """
+        ).fetchall()]
+        latest_events = [dict(r) for r in conn.execute(
+            """
+            SELECT id, event_type, lat, lon, start_datetime, end_datetime, risk_modifier, source, imported_at
+            FROM open_data_event
+            ORDER BY start_datetime DESC
+            LIMIT 20
+            """
+        ).fetchall()]
+        sources = [dict(r) for r in conn.execute(
+            """
+            SELECT source_name, imported_at, record_count, notes
+            FROM data_source_state
+            ORDER BY imported_at DESC
+            LIMIT 20
+            """
+        ).fetchall()]
+    json_response(
+        handler,
+        HTTPStatus.OK,
+        {
+            "admin_user": username,
+            "counts": counts,
+            "latest_signals": latest_signals,
+            "latest_events": latest_events,
+            "data_sources": sources,
+        },
+    )
+
+
+def handle_admin_events_list(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -> None:
+    ok, username = admin_auth(handler)
+    if not ok:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": username})
+        return
+    try:
+        limit = int((query.get("limit") or ["100"])[0])
+    except Exception:
+        limit = 100
+    limit = max(1, min(limit, 500))
+    with get_conn() as conn:
+        events = [dict(r) for r in conn.execute(
+            """
+            SELECT id, event_type, lat, lon, start_datetime, end_datetime, risk_modifier, source, imported_at
+            FROM open_data_event
+            ORDER BY start_datetime DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()]
+    json_response(handler, HTTPStatus.OK, {"admin_user": username, "events": events})
+
+
+def handle_admin_events_create(handler: BaseHTTPRequestHandler) -> None:
+    ok, username = admin_auth(handler)
+    if not ok:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": username})
+        return
+    try:
+        body = read_json(handler)
+    except Exception:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "invalid_json"})
+        return
+    event, error = parse_admin_event(body)
+    if error:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": error})
+        return
+
+    now_iso = to_iso(utc_now())
+    event_id = str(uuid.uuid4())
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO open_data_event (
+                id, event_type, lat, lon, start_datetime, end_datetime, risk_modifier, source, imported_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event_id,
+                event["event_type"],
+                event["lat"],
+                event["lon"],
+                event["start_datetime"],
+                event["end_datetime"],
+                event["risk_modifier"],
+                event["source"],
+                now_iso,
+            ),
+        )
+        count = conn.execute("SELECT COUNT(*) AS c FROM open_data_event WHERE source = ?", (event["source"],)).fetchone()["c"]
+        conn.execute(
+            """
+            INSERT INTO data_source_state (source_name, imported_at, record_count, notes)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(source_name) DO UPDATE SET
+              imported_at = excluded.imported_at,
+              record_count = excluded.record_count,
+              notes = excluded.notes
+            """,
+            (event["source"], now_iso, count, f"manual update by {username}"),
+        )
+    json_response(handler, HTTPStatus.CREATED, {"created": True, "id": event_id})
+
+
+def handle_admin_events_update(handler: BaseHTTPRequestHandler, event_id: str) -> None:
+    ok, username = admin_auth(handler)
+    if not ok:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": username})
+        return
+    try:
+        body = read_json(handler)
+    except Exception:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "invalid_json"})
+        return
+    event, error = parse_admin_event(body)
+    if error:
+        json_response(handler, HTTPStatus.BAD_REQUEST, {"error": error})
+        return
+
+    now_iso = to_iso(utc_now())
+    with get_conn() as conn:
+        existing = conn.execute("SELECT source FROM open_data_event WHERE id = ?", (event_id,)).fetchone()
+        if not existing:
+            json_response(handler, HTTPStatus.NOT_FOUND, {"error": "event_not_found"})
+            return
+        conn.execute(
+            """
+            UPDATE open_data_event
+            SET event_type = ?, lat = ?, lon = ?, start_datetime = ?, end_datetime = ?, risk_modifier = ?, source = ?, imported_at = ?
+            WHERE id = ?
+            """,
+            (
+                event["event_type"],
+                event["lat"],
+                event["lon"],
+                event["start_datetime"],
+                event["end_datetime"],
+                event["risk_modifier"],
+                event["source"],
+                now_iso,
+                event_id,
+            ),
+        )
+        count_new = conn.execute("SELECT COUNT(*) AS c FROM open_data_event WHERE source = ?", (event["source"],)).fetchone()["c"]
+        conn.execute(
+            """
+            INSERT INTO data_source_state (source_name, imported_at, record_count, notes)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(source_name) DO UPDATE SET
+              imported_at = excluded.imported_at,
+              record_count = excluded.record_count,
+              notes = excluded.notes
+            """,
+            (event["source"], now_iso, count_new, f"manual update by {username}"),
+        )
+        old_source = existing["source"]
+        if old_source != event["source"]:
+            count_old = conn.execute("SELECT COUNT(*) AS c FROM open_data_event WHERE source = ?", (old_source,)).fetchone()["c"]
+            if count_old == 0:
+                conn.execute("DELETE FROM data_source_state WHERE source_name = ?", (old_source,))
+            else:
+                conn.execute(
+                    """
+                    UPDATE data_source_state
+                    SET imported_at = ?, record_count = ?, notes = ?
+                    WHERE source_name = ?
+                    """,
+                    (now_iso, count_old, f"manual update by {username}", old_source),
+                )
+    json_response(handler, HTTPStatus.OK, {"updated": True, "id": event_id})
+
+
+def handle_admin_events_delete(handler: BaseHTTPRequestHandler, event_id: str) -> None:
+    ok, username = admin_auth(handler)
+    if not ok:
+        json_response(handler, HTTPStatus.UNAUTHORIZED, {"error": username})
+        return
+
+    now_iso = to_iso(utc_now())
+    with get_conn() as conn:
+        existing = conn.execute("SELECT source FROM open_data_event WHERE id = ?", (event_id,)).fetchone()
+        if not existing:
+            json_response(handler, HTTPStatus.NOT_FOUND, {"error": "event_not_found"})
+            return
+        source_name = existing["source"]
+        conn.execute("DELETE FROM open_data_event WHERE id = ?", (event_id,))
+        count = conn.execute("SELECT COUNT(*) AS c FROM open_data_event WHERE source = ?", (source_name,)).fetchone()["c"]
+        if count == 0:
+            conn.execute("DELETE FROM data_source_state WHERE source_name = ?", (source_name,))
+        else:
+            conn.execute(
+                """
+                UPDATE data_source_state
+                SET imported_at = ?, record_count = ?, notes = ?
+                WHERE source_name = ?
+                """,
+                (now_iso, count, f"manual delete by {username}", source_name),
+            )
+    json_response(handler, HTTPStatus.OK, {"deleted": True, "id": event_id})
+
+
 class StaySenseHandler(BaseHTTPRequestHandler):
     def log_message(self, format: str, *args) -> None:
         return
@@ -620,12 +1035,56 @@ class StaySenseHandler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/map/tile/"):
             handle_tile_proxy(self, parsed.path)
             return
+        if parsed.path == "/admin/bootstrap/status":
+            handle_admin_bootstrap_status(self)
+            return
+        if parsed.path == "/admin/overview":
+            handle_admin_overview(self)
+            return
+        if parsed.path == "/admin/events":
+            query = parse_qs(parsed.query)
+            handle_admin_events_list(self, query)
+            return
         json_response(self, HTTPStatus.NOT_FOUND, {"error": "not_found"})
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/spot/signal":
             handle_signal(self)
+            return
+        if parsed.path == "/admin/bootstrap":
+            handle_admin_bootstrap(self)
+            return
+        if parsed.path == "/admin/login":
+            handle_admin_login(self)
+            return
+        if parsed.path == "/admin/logout":
+            handle_admin_logout(self)
+            return
+        if parsed.path == "/admin/events":
+            handle_admin_events_create(self)
+            return
+        json_response(self, HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+    def do_PUT(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/admin/events/"):
+            event_id = parsed.path.replace("/admin/events/", "", 1).strip()
+            if not event_id:
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "event_id_required"})
+                return
+            handle_admin_events_update(self, event_id)
+            return
+        json_response(self, HTTPStatus.NOT_FOUND, {"error": "not_found"})
+
+    def do_DELETE(self) -> None:
+        parsed = urlparse(self.path)
+        if parsed.path.startswith("/admin/events/"):
+            event_id = parsed.path.replace("/admin/events/", "", 1).strip()
+            if not event_id:
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "event_id_required"})
+                return
+            handle_admin_events_delete(self, event_id)
             return
         json_response(self, HTTPStatus.NOT_FOUND, {"error": "not_found"})
 

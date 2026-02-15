@@ -98,6 +98,15 @@ def init_db() -> None:
                 notes TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS admin_user (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                username TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                password_salt TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_signal_spot_timestamp
               ON community_signal (spot_id, timestamp);
 

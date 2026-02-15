@@ -10,6 +10,8 @@ Implementiert:
 - API: `GET /spot/score`, `POST /spot/signal`
 - Kartenwahl via OpenStreetMap (Leaflet), inkl. Klickauswahl und Ortssuche
 - API: `GET /geocode/search` (Nominatim-Proxy), `GET /map/tile/{z}/{x}/{y}.png` (OSM-Tile-Proxy)
+- Admin-Bereich (Setup/Login, geschuetzt per User/Passwort + Session-Token)
+- Admin-API fuer Uebersicht und Event-Verwaltung (`/admin/*`)
 - Anti-Spam ohne Account: lokaler Token + serverseitiger HMAC-Hash
 - Quick Decision UI mit Signal-Buttons
 - Offline-First im Frontend: Score-Cache + Signal-Queue
@@ -76,6 +78,9 @@ Ortssuche:
 
 Tile-Proxy:
 - `curl -I "http://127.0.0.1:8787/map/tile/12/2149/1387.png"`
+
+Admin-Setup (nur beim ersten Start):
+- `curl -X POST "http://127.0.0.1:8787/admin/bootstrap" -H "Content-Type: application/json" -d '{"username":"admin","password":"<starkes-passwort>"}'`
 
 ## DSGVO-Hinweise im MVP
 
