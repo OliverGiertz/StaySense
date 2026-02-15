@@ -8,6 +8,8 @@ Implementiert:
 - Night Safety Score (0-100) mit Ampel (`green`, `yellow`, `red`)
 - Begruendung mit Top-Faktoren (OSM-Typ, Distanz-POIs, Zeitlogik, Events, Community)
 - API: `GET /spot/score`, `POST /spot/signal`
+- Kartenwahl via OpenStreetMap (Leaflet), inkl. Klickauswahl und Ortssuche
+- API: `GET /geocode/search` (Nominatim-Proxy), `GET /map/tile/{z}/{x}/{y}.png` (OSM-Tile-Proxy)
 - Anti-Spam ohne Account: lokaler Token + serverseitiger HMAC-Hash
 - Quick Decision UI mit Signal-Buttons
 - Offline-First im Frontend: Score-Cache + Signal-Queue
@@ -68,6 +70,12 @@ Score holen:
 
 Signal senden:
 - `curl -X POST "http://127.0.0.1:8787/spot/signal" -H "Content-Type: application/json" -d '{"spot_id":"<ID>","signal_type":"noise","device_token":"<uuid-v4>","timestamp":"2026-02-15T20:15:00Z"}'`
+
+Ortssuche:
+- `curl "http://127.0.0.1:8787/geocode/search?q=Mettmann%20Bahnhof"`
+
+Tile-Proxy:
+- `curl -I "http://127.0.0.1:8787/map/tile/12/2149/1387.png"`
 
 ## DSGVO-Hinweise im MVP
 

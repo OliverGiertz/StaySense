@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>StaySense NRW MVP</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
   </head>
   <body>
     <div class="background haze-a"></div>
@@ -30,6 +31,16 @@
             <input id="lon" type="number" step="0.000001" placeholder="6.9700" />
           </label>
         </div>
+
+        <label class="search-label">
+          Standortsuche (Adresse/Ort)
+          <div class="search-row">
+            <input id="search-query" type="text" placeholder="z. B. Mettmann Bahnhof" />
+            <button id="search-location" class="btn secondary" type="button">Suchen</button>
+          </div>
+        </label>
+        <small id="search-status">Suche über OpenStreetMap Nominatim (DE).</small>
+        <div id="map" class="map"></div>
 
         <div class="button-row">
           <button id="use-location" class="btn secondary">Aktuellen Standort nutzen</button>
@@ -81,6 +92,7 @@
       </section>
     </main>
 
+    <script src="vendor/leaflet/leaflet.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

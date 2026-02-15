@@ -12,6 +12,10 @@ const MAX_CACHE_ITEMS = 50;
 
 const latEl = document.getElementById("lat");
 const lonEl = document.getElementById("lon");
+const searchQueryEl = document.getElementById("search-query");
+const searchLocationEl = document.getElementById("search-location");
+const searchStatusEl = document.getElementById("search-status");
+const mapEl = document.getElementById("map");
 const loadScoreEl = document.getElementById("load-score");
 const useLocationEl = document.getElementById("use-location");
 
@@ -34,6 +38,8 @@ let settings = loadJSON(SETTINGS_KEY, { signalsEnabled: true });
 let apiOnline = false;
 let lastHealthCheckAt = null;
 let lastHealthLatencyMs = null;
+let map = null;
+let mapMarker = null;
 
 const deviceToken = ensureDeviceToken();
 initialize();
@@ -51,6 +57,16 @@ function initialize() {
 
   useLocationEl.addEventListener("click", fillLocationFromDevice);
   loadScoreEl.addEventListener("click", loadScore);
+  searchLocationEl.addEventListener("click", searchLocation);
+  searchQueryEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      searchLocation();
+    }
+  });
+
+  latEl.addEventListener("change", () => updateMapFromInputs(14));
+  lonEl.addEventListener("change", () => updateMapFromInputs(14));
 
   document.querySelectorAll(".signal").forEach((btn) => {
     btn.addEventListener("click", () => sendSignal(btn.dataset.signal));
@@ -77,6 +93,8 @@ function initialize() {
     lonEl.value = "6.9730";
   }
 
+  initializeMap();
+  updateMapFromInputs();
   flushSignalQueue();
   renderQueueStatus();
   checkApiHealth();
@@ -148,8 +166,8 @@ async function fillLocationFromDevice() {
   useLocationEl.disabled = true;
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      latEl.value = position.coords.latitude.toFixed(6);
-      lonEl.value = position.coords.longitude.toFixed(6);
+      setCoordinates(position.coords.latitude, position.coords.longitude, { zoom: 16 });
+      searchStatusEl.textContent = "Aktueller Standort übernommen.";
       useLocationEl.disabled = false;
     },
     () => {
@@ -158,6 +176,94 @@ async function fillLocationFromDevice() {
     },
     { enableHighAccuracy: true, maximumAge: 60000, timeout: 7000 }
   );
+}
+
+function initializeMap() {
+  if (!mapEl || typeof L === "undefined") {
+    searchStatusEl.textContent = "Karte konnte nicht geladen werden.";
+    return;
+  }
+
+  map = L.map(mapEl, { zoomControl: true }).setView([51.2500, 6.9730], 12);
+  L.tileLayer(`${API_BASE}/map/tile/{z}/{x}/{y}.png`, {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  }).addTo(map);
+
+  map.on("click", (event) => {
+    setCoordinates(event.latlng.lat, event.latlng.lng, { fromMap: true });
+    searchStatusEl.textContent = "Position aus Karte übernommen.";
+  });
+}
+
+function setCoordinates(lat, lon, options = {}) {
+  const zoom = options.zoom || null;
+  latEl.value = Number(lat).toFixed(6);
+  lonEl.value = Number(lon).toFixed(6);
+
+  if (!map) {
+    return;
+  }
+
+  const latLng = [Number(lat), Number(lon)];
+  if (!mapMarker) {
+    mapMarker = L.circleMarker(latLng, {
+      radius: 8,
+      color: "#006680",
+      fillColor: "#1ca4c7",
+      fillOpacity: 0.8,
+      weight: 2,
+    }).addTo(map);
+  } else {
+    mapMarker.setLatLng(latLng);
+  }
+
+  if (Number.isFinite(zoom)) {
+    map.setView(latLng, zoom);
+  } else if (options.fromMap) {
+    map.panTo(latLng);
+  }
+}
+
+function updateMapFromInputs(zoom = null) {
+  const lat = Number(latEl.value);
+  const lon = Number(lonEl.value);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return;
+  }
+  setCoordinates(lat, lon, { zoom });
+}
+
+async function searchLocation() {
+  const query = searchQueryEl.value.trim();
+  if (!query) {
+    searchStatusEl.textContent = "Bitte einen Suchbegriff eingeben.";
+    return;
+  }
+
+  searchLocationEl.disabled = true;
+  searchStatusEl.textContent = "Suche läuft ...";
+
+  try {
+    const response = await fetch(`${API_BASE}/geocode/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error("search_failed");
+    }
+
+    const payload = await response.json();
+    if (!payload.results || !payload.results.length) {
+      searchStatusEl.textContent = "Keine Treffer gefunden.";
+      return;
+    }
+
+    const best = payload.results[0];
+    setCoordinates(best.lat, best.lon, { zoom: 16 });
+    searchStatusEl.textContent = `Treffer: ${best.display_name}`;
+  } catch {
+    searchStatusEl.textContent = "Suche fehlgeschlagen. Bitte später erneut versuchen.";
+  } finally {
+    searchLocationEl.disabled = false;
+  }
 }
 
 function cacheKey(lat, lon) {
