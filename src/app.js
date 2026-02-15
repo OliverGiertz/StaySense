@@ -1,4 +1,8 @@
-const API_BASE = window.STAYSENSE_API_BASE || "http://127.0.0.1:8787";
+const DEFAULT_API_BASE =
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://127.0.0.1:8787"
+    : "/api";
+const API_BASE = window.STAYSENSE_API_BASE || DEFAULT_API_BASE;
 
 const DEVICE_TOKEN_KEY = "staysense.device_token.v1";
 const SETTINGS_KEY = "staysense.settings.v1";
