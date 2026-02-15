@@ -160,10 +160,14 @@ def import_event_rows(rows: list[dict], source_name: str, notes: str) -> dict:
     imported_at = now_iso()
 
     db_rows = []
+    seen_ids = set()
     for item in rows:
         event_type = item.get("event_type")
         if event_type not in VALID_TYPES:
             continue
+        if item["id"] in seen_ids:
+            continue
+        seen_ids.add(item["id"])
 
         db_rows.append(
             (

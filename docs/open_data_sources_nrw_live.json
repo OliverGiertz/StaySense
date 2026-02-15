@@ -45,7 +45,6 @@
       "source_name": "koeln_baustellen_notfall",
       "coord_crs": "EPSG:25832",
       "field_map": {
-        "external_id": "properties.Aktenzeichen",
         "lat": "geometry.coordinates.1",
         "lon": "geometry.coordinates.0",
         "event_type": "properties.Kategorie",
