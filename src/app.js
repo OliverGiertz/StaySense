@@ -103,21 +103,6 @@ function initialize() {
     btn.addEventListener("click", () => sendSignal(btn.dataset.signal));
   });
 
-  document.getElementById("show-attribution").addEventListener("click", (e) => {
-    e.preventDefault();
-    legalOutputEl.textContent = "Kartendaten: OpenStreetMap-Mitwirkende (ODbL). Open Data NRW: jeweilige Quellen mit Namensnennung.";
-  });
-
-  document.getElementById("show-privacy").addEventListener("click", (e) => {
-    e.preventDefault();
-    legalOutputEl.textContent = "Kein Login, keine IP-Speicherung, kein Fingerprinting. Missbrauchsschutz via gehashtem lokalem Zufallstoken (HMAC-SHA256).";
-  });
-
-  document.getElementById("show-imprint").addEventListener("click", (e) => {
-    e.preventDefault();
-    legalOutputEl.textContent = "MVP-Hinweis: Impressum im Produktionsbetrieb verpflichtend mit Anbieterkennzeichnung.";
-  });
-
   adminSetupSubmitEl.addEventListener("click", adminBootstrap);
   adminLoginSubmitEl.addEventListener("click", adminLogin);
   adminLogoutEl.addEventListener("click", adminLogout);

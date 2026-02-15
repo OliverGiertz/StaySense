@@ -98,6 +98,15 @@ Admin-Setup (nur beim ersten Start):
 - Kein Device Fingerprinting
 - Missbrauchsschutz nur ueber `hashed_device = HMAC_SHA256(device_token, server_salt)`
 
+## Attribution (Rechtliches)
+
+Unter `Attribution` muessen die verwendeten Datenquellen und Lizenzen klar genannt werden:
+- OpenStreetMap-Mitwirkende + ODbL-Hinweis
+- Geocoding-Dienst (Nominatim) als Quelle
+- Jede OpenData-Quelle mit Lizenzhinweis (z. B. Datenlizenz Deutschland Zero/By)
+
+In der App ist dafuer die Seite `quellen.html` vorgesehen.
+
 ## Produktion
 
 - `STAYSENSE_SERVER_SALT` zwingend als geheimes Env setzen

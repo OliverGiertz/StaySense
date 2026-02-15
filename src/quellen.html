@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StaySense Quellen & Attribution</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="background haze-a"></div>
+    <div class="background haze-b"></div>
+
+    <header class="top">
+      <h1>Quellen & Attribution</h1>
+      <p>Transparenz zu Datenquellen, Lizenzen und rechtlichen Hinweisen.</p>
+      <small><a href="/" style="color: inherit">Zurück zur App</a></small>
+    </header>
+
+    <main class="grid" style="max-width: 980px">
+      <section class="panel">
+        <h2>Attribution (Pflichtangaben)</h2>
+        <ul class="legal">
+          <li>OpenStreetMap-Mitwirkende (ODbL): <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">openstreetmap.org/copyright</a></li>
+          <li>Nominatim-Geocoding (OSM Foundation): <a href="https://nominatim.org/release-docs/develop/api/Overview/" target="_blank" rel="noopener noreferrer">API-Dokumentation</a></li>
+          <li>OpenData NRW/Kommunen: jeweilige Datensatz-Lizenz und Namensnennung je Quelle</li>
+        </ul>
+      </section>
+
+      <section class="panel">
+        <h2>Live-Datenquellen (API)</h2>
+        <p class="small" id="source-status">Lade Datenquellen ...</p>
+        <div id="source-list" class="admin-list">-</div>
+      </section>
+
+      <section class="panel">
+        <h2>Rechtliches</h2>
+        <ul class="legal">
+          <li><a href="https://vanityontour.de/impressum/" target="_blank" rel="noopener noreferrer">Impressum</a></li>
+          <li><a href="https://vanityontour.de/datenschutz/" target="_blank" rel="noopener noreferrer">Datenschutz</a></li>
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      const DEFAULT_API_BASE =
+        window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+          ? "http://127.0.0.1:8787"
+          : "/api";
+      const API_BASE = window.STAYSENSE_API_BASE || DEFAULT_API_BASE;
+
+      async function loadSources() {
+        const statusEl = document.getElementById("source-status");
+        const listEl = document.getElementById("source-list");
+        try {
+          const response = await fetch(`${API_BASE}/health`, { cache: "no-store" });
+          if (!response.ok) {
+            throw new Error("health_failed");
+          }
+          const payload = await response.json();
+          const sources = payload.sources || [];
+          if (!sources.length) {
+            statusEl.textContent = "Keine Quellenmetadaten vorhanden.";
+            listEl.textContent = "Keine Einträge.";
+            return;
+          }
+          statusEl.textContent = `Geladen: ${sources.length} Quelle(n).`;
+          listEl.innerHTML = "";
+          sources.forEach((src) => {
+            const div = document.createElement("div");
+            div.className = "admin-list-item";
+            div.textContent = `${src.source_name} | ${src.record_count} records | ${src.imported_at} | ${src.notes}`;
+            listEl.appendChild(div);
+          });
+        } catch {
+          statusEl.textContent = "Quellen konnten nicht geladen werden.";
+          listEl.textContent = "API nicht erreichbar.";
+        }
+      }
+
+      loadSources();
+    </script>
+  </body>
+</html>
