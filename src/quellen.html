@@ -20,16 +20,47 @@
       <section class="panel">
         <h2>Attribution (Pflichtangaben)</h2>
         <ul class="legal">
-          <li>OpenStreetMap-Mitwirkende (ODbL): <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">openstreetmap.org/copyright</a></li>
-          <li>Nominatim-Geocoding (OSM Foundation): <a href="https://nominatim.org/release-docs/develop/api/Overview/" target="_blank" rel="noopener noreferrer">API-Dokumentation</a></li>
-          <li>OpenData NRW/Kommunen: jeweilige Datensatz-Lizenz und Namensnennung je Quelle</li>
+          <li>OpenStreetMap-Mitwirkende, Lizenz ODbL 1.0: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">openstreetmap.org/copyright</a></li>
+          <li>Nominatim Geocoding (OSM Foundation), basierend auf OSM-Daten: <a href="https://nominatim.org/release-docs/develop/api/Overview/" target="_blank" rel="noopener noreferrer">API-Dokumentation</a></li>
+          <li>OpenData-Quellen der Stadt Köln / Open.NRW, Lizenz: Datenlizenz Deutschland – Zero – Version 2.0</li>
         </ul>
+        <p class="small">
+          Stand dieser Seite: <span id="attribution-date">-</span>. Bei Aktualisierung der Datenquellen werden die Angaben entsprechend angepasst.
+        </p>
       </section>
 
       <section class="panel">
-        <h2>Live-Datenquellen (API)</h2>
+        <h2>Verwendete Datenquellen</h2>
+        <div class="admin-list">
+          <div class="admin-list-item">
+            Kartendarstellung und Kachelgrundlage: OpenStreetMap (ODbL) | Nutzung in StaySense: Kartenhintergrund, Standortauswahl, POI-Kontext.
+          </div>
+          <div class="admin-list-item">
+            Ortssuche: Nominatim (OSM Foundation) | Nutzung in StaySense: Adress-/Ortssuche zur Koordinatenauswahl.
+          </div>
+          <div class="admin-list-item">
+            Verkehrsbeeinträchtigungen Stadt Köln (ArcGIS JSON) | Lizenz: DL-DE-Zero-2.0 |
+            Quelle: <a href="https://offenedaten-koeln.de/dataset/verkehrsbeeintr%C3%A4chtigungen-stadt-k%C3%B6ln" target="_blank" rel="noopener noreferrer">offenedaten-koeln.de Datensatz</a>
+          </div>
+          <div class="admin-list-item">
+            Baustellen Köln (WFS, Layer Notfall) | Lizenz: DL-DE-Zero-2.0 |
+            Quelle: <a href="https://offenedaten-koeln.de/dataset/baustellen-k%C3%B6ln" target="_blank" rel="noopener noreferrer">offenedaten-koeln.de Datensatz</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Live-Importstatus (API)</h2>
         <p class="small" id="source-status">Lade Datenquellen ...</p>
         <div id="source-list" class="admin-list">-</div>
+      </section>
+
+      <section class="panel">
+        <h2>Was bedeutet Attribution?</h2>
+        <p class="small">
+          Attribution bedeutet die verpflichtende Nennung der Datenurheber, Lizenzen und Quellen-Links direkt im Produkt.
+          Für StaySense betrifft das insbesondere OpenStreetMap/ODbL, Nominatim und kommunale OpenData-Quellen.
+        </p>
       </section>
 
       <section class="panel">
@@ -51,6 +82,8 @@
       async function loadSources() {
         const statusEl = document.getElementById("source-status");
         const listEl = document.getElementById("source-list");
+        const dateEl = document.getElementById("attribution-date");
+        dateEl.textContent = new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
         try {
           const response = await fetch(`${API_BASE}/health`, { cache: "no-store" });
           if (!response.ok) {
@@ -63,7 +96,7 @@
             listEl.textContent = "Keine Einträge.";
             return;
           }
-          statusEl.textContent = `Geladen: ${sources.length} Quelle(n).`;
+          statusEl.textContent = `Geladen: ${sources.length} Quelle(n), letzter API-Check: ${new Date().toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" })}`;
           listEl.innerHTML = "";
           sources.forEach((src) => {
             const div = document.createElement("div");
