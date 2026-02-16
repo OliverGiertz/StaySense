@@ -1,0 +1,13 @@
+Title,Body,Status,Iteration,Labels,Priority
+"Roadmap: Monitoring/Alerting API + Import","Uptime, Error-Rate, Alerting fuer staysense-api und staysense-import aufsetzen. Akzeptanz: Alarm bei API down >2min, Import-Fail, stale data >24h.","Todo","0-30 Tage","roadmap,ops,backend","P1"
+"Roadmap: Score-Engine Observability","Logging/Metriken fuer degradierte Scores, Fallback-Nutzung und Fehlerpfade. Dashboard/Report fuer Haeufigkeit.","Todo","0-30 Tage","roadmap,backend,quality","P1"
+"Roadmap: Admin UX Filter & Fehlermeldungen","Filter in Admin-Bereich fuer Events/Signals nach Zeitraum + klare Fehlertexte je API-Code.","Todo","0-30 Tage","roadmap,frontend,admin","P2"
+"Roadmap: Ruhigere Alternativen im Umkreis","Quick Action: Vorschlaege fuer ruhigere Spots im Radius (z. B. 2 km).","Todo","31-60 Tage","roadmap,frontend,backend,feature","P1"
+"Roadmap: Community-Signale erweitern","Optionale Strukturfelder (Intensitaet, Dauer, Uhrzeitfenster) ohne Freitext.","Todo","31-60 Tage","roadmap,backend,feature,privacy","P2"
+"Roadmap: OpenData-Ausbau NRW","Weitere kommunale Datenquellen fuer Events/Baustellen integrieren und validieren.","Todo","31-60 Tage","roadmap,data,backend","P1"
+"Roadmap: PostgreSQL/PostGIS Migration","Persistenz auf PostgreSQL, optional PostGIS fuer raeumliche Abfragen.","Todo","61-90 Tage","roadmap,backend,infra","P2"
+"Roadmap: Missbrauchserkennung fuer Signale","Anomalie-Erkennung fuer auffaellige Signal-Muster (Anti-Manipulation).","Todo","61-90 Tage","roadmap,backend,security","P1"
+"Roadmap: OpenAPI + API Versionierung","Exportierbare API-Doku und versionierte Endpunkte (`/v1`).","Todo","61-90 Tage","roadmap,api,docs","P2"
+"Top-3 umgesetzt: Transparente Score-Erklaerung","Bereits umgesetzt: explanation.factors + explanation.spot_context in API und UI-Darstellung.","Done","Bereits umgesetzt","roadmap,done,backend,frontend","P0"
+"Top-3 umgesetzt: Datenqualitaetsindikator","Bereits umgesetzt: meta.quality (level,label,score,reasons) in API und Badge in UI.","Done","Bereits umgesetzt","roadmap,done,backend,frontend","P0"
+"Top-3 umgesetzt: Karten-Pin Drag&Drop","Bereits umgesetzt: verschiebbarer Pin fuer Standortauswahl inkl. Koordinaten-Update.","Done","Bereits umgesetzt","roadmap,done,frontend,map","P0"
