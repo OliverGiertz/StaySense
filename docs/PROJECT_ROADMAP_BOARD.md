@@ -21,6 +21,31 @@ Quelle: `docs/ROADMAP_30_60_90.md` (Stand 2026-02-16)
 
 Siehe CSV-Import: `docs/PROJECT_ROADMAP_IMPORT.csv`
 
+## Sync-Workflow (automatisch)
+
+Tool:
+- `scripts/sync_project_roadmap.py`
+
+Dry-Run:
+
+```bash
+python3 scripts/sync_project_roadmap.py --project 4 --owner @me --dry-run
+```
+
+Ausfuehren:
+
+```bash
+python3 scripts/sync_project_roadmap.py --project 4 --owner @me --apply --create-fields
+```
+
+Was der Sync macht:
+
+- Upsert per Titel (Draft-Items)
+- Body aus CSV aktualisieren
+- `Status` setzen
+- `Roadmap Window` setzen (falls vorhanden/erzeugbar)
+- `Priority` setzen (falls vorhanden/erzeugbar)
+
 ## Pflege-Regeln
 
 1. Jede Roadmap-Task hat klare Akzeptanzkriterien.
