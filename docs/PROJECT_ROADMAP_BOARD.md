@@ -46,6 +46,39 @@ Was der Sync macht:
 - `Roadmap Window` setzen (falls vorhanden/erzeugbar)
 - `Priority` setzen (falls vorhanden/erzeugbar)
 
+## Weekly Reminder (automatisch)
+
+Workflow:
+- `.github/workflows/roadmap-reminder.yml`
+
+Script:
+- `scripts/roadmap_reminder_report.py`
+
+Manuell testen:
+
+```bash
+python3 scripts/roadmap_reminder_report.py \
+  --repo OliverGiertz/StaySense \
+  --project-owner OliverGiertz \
+  --project-number 4 \
+  --days-upcoming 14 \
+  --dry-run
+```
+
+Produktiv (lokal):
+
+```bash
+python3 scripts/roadmap_reminder_report.py \
+  --repo OliverGiertz/StaySense \
+  --project-owner OliverGiertz \
+  --project-number 4 \
+  --days-upcoming 14
+```
+
+GitHub Actions Secret:
+- `GH_PROJECT_TOKEN` (empfohlen, Scope: `repo`, `project`, `read:project`)
+- Ohne dieses Secret laeuft der Report ggf. nur teilweise (Project-Felder evtl. nicht lesbar).
+
 ## Pflege-Regeln
 
 1. Jede Roadmap-Task hat klare Akzeptanzkriterien.

@@ -1,0 +1,28 @@
+name: Roadmap Reminder
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  roadmap-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate and Publish Roadmap Report
+        env:
+          GH_TOKEN: ${{ secrets.GH_PROJECT_TOKEN || github.token }}
+        run: |
+          python3 scripts/roadmap_reminder_report.py \
+            --repo OliverGiertz/StaySense \
+            --project-owner OliverGiertz \
+            --project-number 4 \
+            --days-upcoming 14 \
+            --upsert-issue-title "[Roadmap] Weekly Health Report"
