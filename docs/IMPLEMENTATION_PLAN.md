@@ -74,6 +74,8 @@ Entscheidung in <10 Sekunden: Ist ein Spot heute Nacht (22-06) voraussichtlich r
 
 ## Naechste Schritte
 
-1. Reale NRW/Kommunal-URLs in `open_data_sources.json` aktivieren
-2. Health-Checks + Alerting fuer fehlgeschlagene Importjobs
-3. Postgres + PostGIS Migration
+1. Monitoring/Alerting fuer API und Importjobs produktiv aufsetzen
+2. "Ruhigere Alternativen im Umkreis" als Quick-Action integrieren
+3. Opendata-Quellen in NRW pro Kommune schrittweise erweitern
+
+Siehe auch: `docs/ROADMAP_30_60_90.md`

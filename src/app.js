@@ -24,6 +24,9 @@ const useLocationEl = document.getElementById("use-location");
 const scoreEl = document.getElementById("score");
 const ampelEl = document.getElementById("ampel");
 const reasonsEl = document.getElementById("reasons");
+const factorDetailsEl = document.getElementById("factor-details");
+const qualityBadgeEl = document.getElementById("quality-badge");
+const spotContextEl = document.getElementById("spot-context");
 const nightWindowEl = document.getElementById("night-window");
 const networkStatusEl = document.getElementById("network-status");
 const dataStatusEl = document.getElementById("data-status");
@@ -240,6 +243,7 @@ function initializeMap() {
 
 function setCoordinates(lat, lon, options = {}) {
   const zoom = options.zoom || null;
+  const skipMarkerUpdate = Boolean(options.skipMarkerUpdate);
   latEl.value = Number(lat).toFixed(6);
   lonEl.value = Number(lon).toFixed(6);
 
@@ -248,16 +252,20 @@ function setCoordinates(lat, lon, options = {}) {
   }
 
   const latLng = [Number(lat), Number(lon)];
-  if (!mapMarker) {
-    mapMarker = L.circleMarker(latLng, {
-      radius: 8,
-      color: "#006680",
-      fillColor: "#1ca4c7",
-      fillOpacity: 0.8,
-      weight: 2,
-    }).addTo(map);
-  } else {
-    mapMarker.setLatLng(latLng);
+  if (!skipMarkerUpdate) {
+    if (!mapMarker) {
+      mapMarker = L.marker(latLng, {
+        draggable: true,
+        icon: L.divIcon({ className: "spot-pin", html: "<span></span>", iconSize: [16, 16], iconAnchor: [8, 8] }),
+      }).addTo(map);
+      mapMarker.on("dragend", () => {
+        const pos = mapMarker.getLatLng();
+        setCoordinates(pos.lat, pos.lng, { fromMap: true, zoom: map.getZoom(), skipMarkerUpdate: true });
+        searchStatusEl.textContent = "Position per Pin verschoben.";
+      });
+    } else {
+      mapMarker.setLatLng(latLng);
+    }
   }
 
   if (Number.isFinite(zoom)) {
@@ -684,6 +692,40 @@ function renderScore(data, fromCache, cacheTime = "") {
     reasonsEl.appendChild(li);
   });
 
+  const quality = (data.meta && data.meta.quality) || null;
+  qualityBadgeEl.classList.remove("high", "medium", "low");
+  if (quality && quality.level) {
+    qualityBadgeEl.classList.add(quality.level);
+    qualityBadgeEl.textContent = `${quality.label} (${quality.score})`;
+  } else {
+    qualityBadgeEl.textContent = "-";
+  }
+
+  factorDetailsEl.innerHTML = "";
+  const details = (data.explanation && data.explanation.factors) || data.factors || [];
+  if (!details.length) {
+    const empty = document.createElement("li");
+    empty.textContent = "Keine Faktoren vorhanden.";
+    factorDetailsEl.appendChild(empty);
+  } else {
+    details.slice(0, 8).forEach((item) => {
+      const li = document.createElement("li");
+      li.textContent = `${item.label} (${Number(item.points).toFixed(1)}) | ${item.source}`;
+      factorDetailsEl.appendChild(li);
+    });
+  }
+
+  const spotCtx = (data.explanation && data.explanation.spot_context) || null;
+  if (spotCtx) {
+    spotContextEl.textContent =
+      `Spot-Kontext: area ${spotCtx.area_type}, road ${spotCtx.road_type}, ` +
+      `Polizei ${formatMeters(spotCtx.distance_police_m)}, ` +
+      `Feuerwehr ${formatMeters(spotCtx.distance_fire_m)}, ` +
+      `Krankenhaus ${formatMeters(spotCtx.distance_hospital_m)}`;
+  } else {
+    spotContextEl.textContent = "Spot-Kontext: -";
+  }
+
   const health = (data.meta && data.meta.health) || {};
   if (health.has_data) {
     const freshness = `freshest ${health.freshest_age_hours}h, stalest ${health.stalest_age_hours}h`;
@@ -704,6 +746,17 @@ function renderScore(data, fromCache, cacheTime = "") {
   } else {
     signalStatusEl.textContent = "Live-Score erfolgreich geladen.";
   }
+}
+
+function formatMeters(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "-";
+  }
+  if (n >= 1000) {
+    return `${(n / 1000).toFixed(1)} km`;
+  }
+  return `${Math.round(n)} m`;
 }
 
 function buildSignal(signalType) {

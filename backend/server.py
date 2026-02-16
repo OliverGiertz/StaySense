@@ -476,6 +476,98 @@ def source_health(sources: list[dict], now: dt.datetime) -> dict:
     }
 
 
+def classify_quality(
+    health: dict, used_fallback_pois: bool, degraded: bool, factor_count: int, community_factor_count: int
+) -> dict:
+    score = 100
+    reasons = []
+
+    if degraded:
+        score -= 45
+        reasons.append("Backend im degradierten Modus")
+    if used_fallback_pois:
+        score -= 20
+        reasons.append("Fallback-POIs statt Live-POIs")
+    if not health.get("has_data"):
+        score -= 20
+        reasons.append("Keine Quellenmetadaten")
+    else:
+        stalest_age = health.get("stalest_age_hours")
+        if isinstance(stalest_age, (int, float)):
+            if stalest_age > 48:
+                score -= 20
+                reasons.append("Mindestens eine Quelle >48h alt")
+            elif stalest_age > 24:
+                score -= 10
+                reasons.append("Mindestens eine Quelle >24h alt")
+        stale_count = len(health.get("stale_sources") or [])
+        if stale_count >= 2:
+            score -= 10
+            reasons.append("Mehrere stale Quellen")
+        elif stale_count == 1:
+            score -= 5
+            reasons.append("Eine stale Quelle")
+
+    if factor_count <= 2:
+        score -= 8
+        reasons.append("Wenig Score-Faktoren verfuegbar")
+    if community_factor_count == 0:
+        score -= 5
+        reasons.append("Keine aktuellen Community-Signale")
+    elif community_factor_count >= 2:
+        score += 4
+        reasons.append("Mehrere aktuelle Community-Signale")
+
+    score = max(0, min(100, int(round(score))))
+    if score >= 75:
+        level = "high"
+        label = "hoch"
+    elif score >= 45:
+        level = "medium"
+        label = "mittel"
+    else:
+        level = "low"
+        label = "niedrig"
+
+    return {
+        "score": score,
+        "level": level,
+        "label": label,
+        "reasons": reasons[:4],
+    }
+
+
+def build_explanation(factors: list[dict], spot: dict) -> dict:
+    details = []
+    for item in factors:
+        points = float(item["points"])
+        impact = "neutral"
+        if points > 0:
+            impact = "positive"
+        elif points < 0:
+            impact = "negative"
+        details.append(
+            {
+                "key": item["key"],
+                "label": item["label"],
+                "points": round(points, 2),
+                "source": item["source"],
+                "impact": impact,
+            }
+        )
+
+    return {
+        "factors": details,
+        "spot_context": {
+            "area_type": spot.get("osm_area_type", "unknown"),
+            "road_type": spot.get("road_type", "unknown"),
+            "distance_police_m": int(spot.get("distance_police_m", 5000)),
+            "distance_fire_m": int(spot.get("distance_fire_m", 5000)),
+            "distance_hospital_m": int(spot.get("distance_hospital_m", 5000)),
+        },
+    }
+
+
 def compute_score_payload(lat: float, lon: float, at_time: dt.datetime) -> dict:
     now_iso = to_iso(utc_now())
     spot = ensure_spot(lat, lon, now_iso)
@@ -504,8 +596,16 @@ def compute_score_payload(lat: float, lon: float, at_time: dt.datetime) -> dict:
     raw_score = 100.0 + sum(item["points"] for item in factors)
     score = clamp_score(raw_score)
 
-    top_reasons = sorted(factors, key=lambda item: abs(item["points"]), reverse=True)[:4]
+    sorted_factors = sorted(factors, key=lambda item: abs(item["points"]), reverse=True)
+    top_reasons = sorted_factors[:4]
     reasons = [f"{item['label']} ({item['points']:+.0f})" for item in top_reasons]
+    quality = classify_quality(
+        health=health,
+        used_fallback_pois=bool(spot.get("used_fallback_pois", False)),
+        degraded=False,
+        factor_count=len(sorted_factors),
+        community_factor_count=sum(1 for item in factors if item.get("source") == "community"),
+    )
 
     return {
         "spot_id": spot["id"],
@@ -513,6 +613,7 @@ def compute_score_payload(lat: float, lon: float, at_time: dt.datetime) -> dict:
         "ampel": ampel(score),
         "reasons": reasons,
         "factors": top_reasons,
+        "explanation": build_explanation(sorted_factors, spot),
         "night_window": {
             "start": to_iso(night_start),
             "end": to_iso(night_end),
@@ -524,6 +625,7 @@ def compute_score_payload(lat: float, lon: float, at_time: dt.datetime) -> dict:
             "sources": sources,
             "health": health,
             "used_fallback_pois": bool(spot.get("used_fallback_pois", False)),
+            "quality": quality,
         },
     }
 
@@ -550,8 +652,24 @@ def compute_score_payload_fallback(lat: float, lon: float, at_time: dt.datetime,
 
     raw_score = 100.0 + sum(item["points"] for item in factors)
     score = clamp_score(raw_score)
-    top_reasons = sorted(factors, key=lambda item: abs(item["points"]), reverse=True)[:4]
+    sorted_factors = sorted(factors, key=lambda item: abs(item["points"]), reverse=True)
+    top_reasons = sorted_factors[:4]
     reasons = [f"{item['label']} ({item['points']:+.0f})" for item in top_reasons] or ["Fallback-Berechnung aktiv (0)"]
+    fallback_spot = {
+        "osm_area_type": "residential",
+        "road_type": "unknown",
+        "distance_police_m": police_d,
+        "distance_fire_m": fire_d,
+        "distance_hospital_m": hosp_d,
+    }
+    health = {"freshest_age_hours": None, "stalest_age_hours": None, "stale_sources": [], "has_data": False}
+    quality = classify_quality(
+        health=health,
+        used_fallback_pois=True,
+        degraded=True,
+        factor_count=len(sorted_factors),
+        community_factor_count=0,
+    )
 
     return {
         "spot_id": spot_id_for(lat, lon),
@@ -559,6 +677,7 @@ def compute_score_payload_fallback(lat: float, lon: float, at_time: dt.datetime,
         "ampel": ampel(score),
         "reasons": reasons,
         "factors": top_reasons,
+        "explanation": build_explanation(sorted_factors, fallback_spot),
         "night_window": {
             "start": to_iso(night_start),
             "end": to_iso(night_end),
@@ -568,10 +687,11 @@ def compute_score_payload_fallback(lat: float, lon: float, at_time: dt.datetime,
             "region": "DE-NW (Pilot: Kreis Mettmann)",
             "attribution": "Kartendaten: OpenStreetMap-Mitwirkende (ODbL)",
             "sources": [],
-            "health": {"freshest_age_hours": None, "stalest_age_hours": None, "stale_sources": [], "has_data": False},
+            "health": health,
             "used_fallback_pois": True,
             "degraded": True,
             "degraded_reason": error_code,
+            "quality": quality,
         },
     }
 

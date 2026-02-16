@@ -197,6 +197,21 @@ select {
   border: 1px solid var(--line);
 }
 
+.spot-pin {
+  width: 16px;
+  height: 16px;
+}
+
+.spot-pin span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: #1ca4c7;
+  box-shadow: 0 2px 8px rgba(6, 31, 43, 0.35);
+}
+
 .btn {
   border: none;
   border-radius: 10px;
@@ -261,6 +276,68 @@ select {
 .reasons {
   margin: 10px 0 0;
   padding-left: 18px;
+}
+
+.subheading {
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+}
+
+.quality-wrap {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.quality-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.quality-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  color: #fff;
+  background: #5f7280;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.quality-badge.high {
+  background: var(--green);
+}
+
+.quality-badge.medium {
+  background: var(--yellow);
+}
+
+.quality-badge.low {
+  background: var(--red);
+}
+
+.factor-details {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.factor-details li {
+  margin-bottom: 4px;
+}
+
+.spot-context {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
 }
 
 .signal-grid {
