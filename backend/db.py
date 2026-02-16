@@ -16,7 +16,11 @@ def get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     with get_conn() as conn:
-        conn.execute("PRAGMA journal_mode = WAL")
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+        except sqlite3.OperationalError:
+            # Some deployments run with read-only db mounts; continue without WAL.
+            pass
         conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS spot (
