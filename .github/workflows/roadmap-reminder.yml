@@ -24,5 +24,6 @@ jobs:
             --repo OliverGiertz/StaySense \
             --project-owner OliverGiertz \
             --project-number 4 \
-            --days-upcoming 14 \
-            --upsert-issue-title "[Roadmap] Weekly Health Report"
+            --days-upcoming 7 \
+            --upsert-issue-title "[Roadmap] Weekly Deadlines (7 Tage)" \
+            --labels "roadmap-report,roadmap,ops"

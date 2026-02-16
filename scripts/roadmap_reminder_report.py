@@ -57,6 +57,8 @@ def fetch_open_roadmap_issues(repo: str) -> list[dict]:
         labels = [it.get("name", "") for it in item.get("labels", [])]
         if "roadmap" not in labels:
             continue
+        if "roadmap-report" in labels:
+            continue
         out.append(item)
     return out
 
@@ -223,6 +225,26 @@ def upsert_issue(repo: str, title: str, body_file: Path, labels: list[str]) -> s
         expect_json=True,
     )
     existing = next((item for item in payload if item.get("title") == title), None)
+    if not existing and labels:
+        fallback = run(
+            [
+                "gh",
+                "issue",
+                "list",
+                "--repo",
+                repo,
+                "--state",
+                "open",
+                "--label",
+                labels[0],
+                "--json",
+                "number,title,url",
+                "--limit",
+                "20",
+            ],
+            expect_json=True,
+        )
+        existing = next((item for item in fallback if str(item.get("title", "")).startswith("[Roadmap] Weekly")), None)
     if existing:
         run(
             [
@@ -232,10 +254,14 @@ def upsert_issue(repo: str, title: str, body_file: Path, labels: list[str]) -> s
                 str(existing["number"]),
                 "--repo",
                 repo,
+                "--title",
+                title,
                 "--body-file",
                 str(body_file),
             ]
         )
+        for label in labels:
+            run(["gh", "issue", "edit", str(existing["number"]), "--repo", repo, "--add-label", label])
         return existing["url"]
 
     cmd = [
@@ -260,8 +286,9 @@ def main() -> int:
     parser.add_argument("--repo", required=True, help="OWNER/REPO")
     parser.add_argument("--project-owner", default="", help="Project owner login, e.g. @me or OliverGiertz")
     parser.add_argument("--project-number", type=int, default=0, help="Project number")
-    parser.add_argument("--days-upcoming", type=int, default=14)
-    parser.add_argument("--upsert-issue-title", default="[Roadmap] Weekly Health Report")
+    parser.add_argument("--days-upcoming", type=int, default=7)
+    parser.add_argument("--upsert-issue-title", default="[Roadmap] Weekly Deadlines (7 Tage)")
+    parser.add_argument("--labels", default="roadmap-report,roadmap,ops", help="Comma-separated labels for report issue")
     parser.add_argument("--output-file", type=Path, default=Path("roadmap-health-report.md"))
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -280,7 +307,7 @@ def main() -> int:
         print(report)
         return 0
 
-    labels = ["roadmap-report", "roadmap"]
+    labels = [it.strip() for it in args.labels.split(",") if it.strip()]
     for label in labels:
         ensure_label(args.repo, label)
     issue_url = upsert_issue(args.repo, args.upsert_issue_title, args.output_file, labels)

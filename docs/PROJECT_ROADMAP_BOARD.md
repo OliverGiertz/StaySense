@@ -61,7 +61,7 @@ python3 scripts/roadmap_reminder_report.py \
   --repo OliverGiertz/StaySense \
   --project-owner OliverGiertz \
   --project-number 4 \
-  --days-upcoming 14 \
+  --days-upcoming 7 \
   --dry-run
 ```
 
@@ -72,7 +72,9 @@ python3 scripts/roadmap_reminder_report.py \
   --repo OliverGiertz/StaySense \
   --project-owner OliverGiertz \
   --project-number 4 \
-  --days-upcoming 14
+  --days-upcoming 7 \
+  --upsert-issue-title "[Roadmap] Weekly Deadlines (7 Tage)" \
+  --labels "roadmap-report,roadmap,ops"
 ```
 
 GitHub Actions Secret:
