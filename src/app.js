@@ -268,8 +268,8 @@ function setCoordinates(lat, lon, options = {}) {
 }
 
 function updateMapFromInputs(zoom = null) {
-  const lat = Number(latEl.value);
-  const lon = Number(lonEl.value);
+  const lat = parseCoordinateInput(latEl.value);
+  const lon = parseCoordinateInput(lonEl.value);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
     return;
   }
@@ -614,12 +614,15 @@ function findCachedScore(lat, lon) {
 }
 
 async function loadScore() {
-  const lat = Number(latEl.value);
-  const lon = Number(lonEl.value);
+  const lat = parseCoordinateInput(latEl.value);
+  const lon = parseCoordinateInput(lonEl.value);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-    alert("Bitte gültige Koordinaten eingeben.");
+    alert("Bitte gültige Koordinaten eingeben (z. B. 51.10893 oder 51,10893).");
     return;
   }
+  // Normalize input display to avoid locale-related parsing issues on repeated requests.
+  latEl.value = lat.toFixed(6);
+  lonEl.value = lon.toFixed(6);
 
   loadScoreEl.disabled = true;
   const at = new Date().toISOString();
@@ -627,6 +630,8 @@ async function loadScore() {
   try {
     const response = await fetch(`${API_BASE}/spot/score?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&at=${encodeURIComponent(at)}`);
     if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      signalStatusEl.textContent = `Live-Score fehlgeschlagen: ${payload.error || `HTTP ${response.status}`}.`;
       throw new Error("api_error");
     }
 
@@ -650,6 +655,17 @@ async function loadScore() {
   } finally {
     loadScoreEl.disabled = false;
   }
+}
+
+function parseCoordinateInput(value) {
+  if (typeof value !== "string") {
+    return Number.NaN;
+  }
+  const normalized = value.trim().replace(",", ".");
+  if (!normalized) {
+    return Number.NaN;
+  }
+  return Number(normalized);
 }
 
 function renderScore(data, fromCache, cacheTime = "") {

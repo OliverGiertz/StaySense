@@ -516,7 +516,8 @@ def handle_score(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -
         json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "invalid_query"})
         return
 
-    if not (47.0 <= lat <= 55.5 and 5.0 <= lon <= 16.0):
+    # Accept any valid geographic coordinate so every point can get a score.
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
         json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "lat_lon_out_of_bounds"})
         return
 
