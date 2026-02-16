@@ -7,6 +7,7 @@ import secrets
 import uuid
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import sqlite3
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
@@ -294,16 +295,23 @@ def ensure_spot(lat: float, lon: float, now_iso: str) -> dict:
         fire_d, fire_fallback = nearest_from_db(lat, lon, "osm_poi", "poi_type", "fire", FALLBACK_FIRE_POINTS)
         hosp_d, hosp_fallback = nearest_from_db(lat, lon, "osm_poi", "poi_type", "hospital", FALLBACK_HOSPITAL_POINTS)
 
-        conn.execute(
-            """
-            INSERT INTO spot (
-                id, lat, lon, osm_area_type, road_type,
-                distance_police_m, distance_fire_m, distance_hospital_m,
-                created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (s_id, lat, lon, area_type, road_type, police_d, fire_d, hosp_d, now_iso, now_iso),
-        )
+        try:
+            conn.execute(
+                """
+                INSERT INTO spot (
+                    id, lat, lon, osm_area_type, road_type,
+                    distance_police_m, distance_fire_m, distance_hospital_m,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (s_id, lat, lon, area_type, road_type, police_d, fire_d, hosp_d, now_iso, now_iso),
+            )
+        except sqlite3.IntegrityError:
+            # Concurrent request may have inserted the same spot id meanwhile.
+            existing = conn.execute("SELECT * FROM spot WHERE id = ?", (s_id,)).fetchone()
+            if existing:
+                return dict(existing)
+            raise
 
         return {
             "id": s_id,
@@ -507,6 +515,54 @@ def compute_score_payload(lat: float, lon: float, at_time: dt.datetime) -> dict:
     }
 
 
+def compute_score_payload_fallback(lat: float, lon: float, at_time: dt.datetime, error_code: str) -> dict:
+    night_start, night_end = night_window_for(at_time)
+    factors: list[dict] = []
+
+    police_d = nearest_distance_m(lat, lon, FALLBACK_POLICE_POINTS)
+    fire_d = nearest_distance_m(lat, lon, FALLBACK_FIRE_POINTS)
+    hosp_d = nearest_distance_m(lat, lon, FALLBACK_HOSPITAL_POINTS)
+
+    if police_d < 200:
+        factors.append({"key": "dist_police", "label": "Polizei in <200m", "points": -15.0, "source": "fallback"})
+    if hosp_d < 200:
+        factors.append({"key": "dist_hospital", "label": "Krankenhaus in <200m", "points": -10.0, "source": "fallback"})
+    if fire_d < 150:
+        factors.append({"key": "dist_fire", "label": "Feuerwehr in <150m", "points": -6.0, "source": "fallback"})
+
+    if weekend_or_holiday(night_start):
+        factors.append({"key": "time_weekend", "label": "Wochenende/Feiertag", "points": -10.0, "source": "time"})
+    else:
+        factors.append({"key": "time_weekday", "label": "Werktagnacht", "points": 5.0, "source": "time"})
+
+    raw_score = 100.0 + sum(item["points"] for item in factors)
+    score = clamp_score(raw_score)
+    top_reasons = sorted(factors, key=lambda item: abs(item["points"]), reverse=True)[:4]
+    reasons = [f"{item['label']} ({item['points']:+.0f})" for item in top_reasons] or ["Fallback-Berechnung aktiv (0)"]
+
+    return {
+        "spot_id": spot_id_for(lat, lon),
+        "score": score,
+        "ampel": ampel(score),
+        "reasons": reasons,
+        "factors": top_reasons,
+        "night_window": {
+            "start": to_iso(night_start),
+            "end": to_iso(night_end),
+        },
+        "meta": {
+            "data_updated_at": to_iso(utc_now()),
+            "region": "DE-NW (Pilot: Kreis Mettmann)",
+            "attribution": "Kartendaten: OpenStreetMap-Mitwirkende (ODbL)",
+            "sources": [],
+            "health": {"freshest_age_hours": None, "stalest_age_hours": None, "stale_sources": [], "has_data": False},
+            "used_fallback_pois": True,
+            "degraded": True,
+            "degraded_reason": error_code,
+        },
+    }
+
+
 def handle_score(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -> None:
     try:
         lat = float(query.get("lat", [""])[0])
@@ -521,7 +577,10 @@ def handle_score(handler: BaseHTTPRequestHandler, query: dict[str, list[str]]) -
         json_response(handler, HTTPStatus.BAD_REQUEST, {"error": "lat_lon_out_of_bounds"})
         return
 
-    payload = compute_score_payload(lat, lon, at)
+    try:
+        payload = compute_score_payload(lat, lon, at)
+    except Exception:
+        payload = compute_score_payload_fallback(lat, lon, at, "score_engine_error")
     json_response(handler, HTTPStatus.OK, payload)
 
 

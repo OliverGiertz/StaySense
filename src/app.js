@@ -689,13 +689,18 @@ function renderScore(data, fromCache, cacheTime = "") {
     const freshness = `freshest ${health.freshest_age_hours}h, stalest ${health.stalest_age_hours}h`;
     const stale = health.stale_sources && health.stale_sources.length ? `, stale: ${health.stale_sources.join(", ")}` : "";
     const fallback = data.meta.used_fallback_pois ? ", Fallback-POI aktiv" : "";
-    dataStatusEl.textContent = `Datenstand: ${freshness}${stale}${fallback}`;
+    const degraded = data.meta.degraded ? ", degradierter Modus" : "";
+    dataStatusEl.textContent = `Datenstand: ${freshness}${stale}${fallback}${degraded}`;
   } else {
-    dataStatusEl.textContent = "Datenstand: keine Quellenmetadaten";
+    dataStatusEl.textContent = data.meta && data.meta.degraded
+      ? "Datenstand: degradierter Modus (Fallback-Berechnung)"
+      : "Datenstand: keine Quellenmetadaten";
   }
 
   if (fromCache) {
     signalStatusEl.textContent = `Cache verwendet (Stand: ${toLocal(cacheTime)}).`;
+  } else if (data.meta && data.meta.degraded) {
+    signalStatusEl.textContent = "Live-Score im Fallback-Modus (eingeschränkte Datenbasis).";
   } else {
     signalStatusEl.textContent = "Live-Score erfolgreich geladen.";
   }
