@@ -312,6 +312,19 @@ def ensure_spot(lat: float, lon: float, now_iso: str) -> dict:
             if existing:
                 return dict(existing)
             raise
+        except sqlite3.OperationalError:
+            # Read-only DB deployments can still serve scores without persisting spot cache.
+            return {
+                "id": s_id,
+                "lat": lat,
+                "lon": lon,
+                "osm_area_type": area_type,
+                "road_type": road_type,
+                "distance_police_m": police_d,
+                "distance_fire_m": fire_d,
+                "distance_hospital_m": hosp_d,
+                "used_fallback_pois": police_fallback or fire_fallback or hosp_fallback,
+            }
 
         return {
             "id": s_id,
