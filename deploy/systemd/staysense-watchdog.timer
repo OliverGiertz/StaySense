@@ -1,0 +1,10 @@
+[Unit]
+Description=Run StaySense API Watchdog every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+Unit=staysense-watchdog.service
+
+[Install]
+WantedBy=timers.target

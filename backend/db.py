@@ -3,6 +3,16 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "data" / "staysense.db"
+REQUIRED_TABLES = {
+    "spot",
+    "community_signal",
+    "osm_poi",
+    "osm_zone",
+    "osm_road",
+    "open_data_event",
+    "data_source_state",
+    "admin_user",
+}
 
 
 def get_conn() -> sqlite3.Connection:
@@ -21,8 +31,7 @@ def init_db() -> None:
         except sqlite3.OperationalError:
             # Some deployments run with read-only db mounts; continue without WAL.
             pass
-        conn.executescript(
-            """
+        schema_sql = """
             CREATE TABLE IF NOT EXISTS spot (
                 id TEXT PRIMARY KEY,
                 lat REAL NOT NULL,
@@ -134,4 +143,14 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_open_data_event_source
               ON open_data_event (source);
             """
-        )
+        try:
+            conn.executescript(schema_sql)
+        except sqlite3.OperationalError as exc:
+            if "readonly" not in str(exc).lower():
+                raise
+            # In read-only mode, continue if schema is already present.
+            rows = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
+            existing = {str(row["name"]) for row in rows}
+            missing = REQUIRED_TABLES - existing
+            if missing:
+                raise

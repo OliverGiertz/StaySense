@@ -5,7 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=www-data
-Group=www-data
+User=staysense
+Group=staysense
 WorkingDirectory=/opt/staysense/backend
+UMask=0002
 ExecStart=/usr/bin/python3 /opt/staysense/backend/run_import_jobs.py --config /opt/staysense/docs/open_data_sources_nrw_live.json --prune-legacy

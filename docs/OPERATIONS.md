@@ -34,6 +34,21 @@ Health check:
 curl -s http://127.0.0.1:8787/health
 ```
 
+Watchdog pruefen:
+
+```bash
+sudo systemctl status staysense-watchdog.timer --no-pager
+sudo journalctl -u staysense-watchdog.service -n 80 --no-pager
+```
+
+## DB Read-Only Sofortfix
+
+```bash
+sudo chown -R staysense:staysense /opt/staysense/data
+sudo chmod 2775 /opt/staysense/data
+sudo systemctl restart staysense-api.service
+```
+
 ## Backup
 
 ```bash

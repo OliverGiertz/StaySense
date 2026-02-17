@@ -1,0 +1,8 @@
+[Unit]
+Description=StaySense API Health Watchdog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env bash /opt/staysense/deploy/scripts/staysense-watchdog.sh

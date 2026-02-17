@@ -5,11 +5,15 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=www-data
-Group=www-data
+User=staysense
+Group=staysense
 WorkingDirectory=/opt/staysense/backend
 Environment=STAYSENSE_SERVER_SALT=CHANGE_ME
 Environment=STAYSENSE_SIGNAL_COOLDOWN_HOURS=24
+UMask=0002
+PermissionsStartOnly=true
+ExecStartPre=/usr/bin/install -d -o staysense -g staysense -m 2775 /opt/staysense/data
+ExecStartPre=/bin/sh -c '/usr/bin/chown -f staysense:staysense /opt/staysense/data/staysense.db /opt/staysense/data/staysense.db-wal /opt/staysense/data/staysense.db-shm || true'
 ExecStart=/usr/bin/python3 /opt/staysense/backend/server.py
 Restart=always
 RestartSec=3
